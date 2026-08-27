@@ -1,81 +1,120 @@
-import React, { useState } from 'react';
-import { ConfigProvider, Button, Spin, theme } from 'antd';
-import { Plane, Compass, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ConfigProvider } from 'antd';
+import HomePage from './components/HomePage';
+import PackingListPage from './components/PackingListPage';
+import { customTheme } from './theme'; // 引入已抽出的本質旅行設計主題變數
 
+// 模擬原本專案的 TripPage，後續步驟會再對此頁面進行精細重構
+// 這裡先放一個暫時的 Placeholder 頁面，方便首頁點擊行程時能顯示畫面
+function TempTripPage({ tripId, onBack }) {
+  return (
+    <div className="min-h-screen bg-esence-cream flex flex-col items-center justify-center p-6 text-center">
+      <h2 className="text-2xl font-serif text-esence-brown mb-4">行程詳細內容</h2>
+      <p className="text-esence-dark/70 mb-6 font-light">行程 ID: {tripId} (重構中...)</p>
+      <button 
+        onClick={onBack}
+        className="btn-esence-outline border-esence-brown text-esence-brown hover:bg-esence-brown hover:text-white px-6 py-2 transition-colors"
+      >
+        返回首頁
+      </button>
+    </div>
+  );
+}
+
+/**
+ * App 元件 (應用程式主入口)
+ * 負責根據網址參數與狀態控制要顯示「首頁」、「行程詳細頁」還是「攜帶清單頁」
+ */
 export default function App() {
-  const [loading, setLoading] = useState(false);
-
-  const handleTestClick = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500);
+  /**
+   * getIdFromUrl 輔助函式
+   * 從目前瀏覽器的網址列中解析出 ?id=xxx 的參數值，做為當前選取的行程 ID
+   */
+  const getIdFromUrl = () => {
+    return new URLSearchParams(window.location.search).get('id');
   };
 
+  // activeTripId 狀態：記錄目前正在瀏覽的行程 ID (若為 null 表示在首頁)
+  const [activeTripId, setActiveTripId] = useState(getIdFromUrl);
+  
+  // showPackingList 狀態：控制是否顯示「旅行攜帶清單」頁面
+  const [showPackingList, setShowPackingList] = useState(false);
+
+  /**
+   * 監聽瀏覽器上一頁/下一頁 (popstate 事件)
+   * 當使用者點擊瀏覽器的上一頁時，自動同步網址與 activeTripId 狀態
+   */
+  useEffect(() => {
+    // 當歷史記錄發生改變時觸發的處理函式
+    const handlePop = () => {
+      setActiveTripId(getIdFromUrl());
+    };
+    
+    window.addEventListener('popstate', handlePop);
+    
+    // 清除監聽器 (避免記憶體洩漏)
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+    };
+  }, []);
+
+  /**
+   * handleSelectTrip 處理函式
+   * 當使用者在首頁點選某個行程卡片時觸發
+   * 將網址加上 ?id=xxx 參數，並切換狀態至該行程
+   */
+  const handleSelectTrip = (tripId) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('id', tripId);
+    // pushState 用於在不重新整理網頁的情況下修改瀏覽器歷史記錄與網址
+    window.history.pushState({ tripId }, '', url);
+    setActiveTripId(tripId);
+  };
+
+  /**
+   * handleOpenPackingList 處理函式
+   * 當使用者在首頁點選「旅行攜帶清單」按鈕時觸發，切換顯示狀態為 true
+   */
+  const handleOpenPackingList = () => {
+    setShowPackingList(true);
+  };
+
+  /**
+   * handleBackToHome 處理函式
+   * 當在行程詳情頁點擊「返回」時觸發，清除網址參數並回到首頁
+   */
+  const handleBackToHome = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('id');
+    window.history.pushState({}, '', url);
+    setActiveTripId(null);
+  };
+
+  // 1. 若 showPackingList 為 true，顯示「旅行攜帶清單」頁面
+  if (showPackingList) {
+    return (
+      <ConfigProvider theme={customTheme}>
+        <PackingListPage onBack={() => setShowPackingList(false)} />
+      </ConfigProvider>
+    );
+  }
+
+  // 2. 若 activeTripId 存在，顯示「行程詳情」頁面 (目前使用 TempTripPage 替代)
+  if (activeTripId) {
+    return (
+      <ConfigProvider theme={customTheme}>
+        <TempTripPage tripId={activeTripId} onBack={handleBackToHome} />
+      </ConfigProvider>
+    );
+  }
+
+  // 3. 預設情況 (都在首頁且沒打開清單)：顯示「首頁行程清單」
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#583f24',      // 本質深木褐
-          colorInfo: '#9e7a4e',         // 麥穗金
-          colorTextBase: '#2C2A29',     // 炭灰褐
-          colorBgBase: '#FAF8F5',       // 暖象牙白
-          borderRadius: 4,              // 微直角設計
-          fontFamily: '"Noto Sans TC", sans-serif',
-        },
-        components: {
-          Button: {
-            borderRadius: 2,            // 按鈕直角化
-            controlHeight: 44,
-          },
-        },
-      }}
-    >
-      <div className="flex min-h-screen items-center justify-center p-4 bg-esence-cream">
-        <div className="w-full max-w-md bg-white border border-esence-sand/60 p-8 rounded-lg text-center flex flex-col items-center gap-6 shadow-premium animate-fade-up">
-          {/* Header icon with custom pulse anim */}
-          <div className="w-16 h-16 rounded-full bg-esence-brown/10 flex items-center justify-center text-esence-brown relative">
-            <Plane className="w-8 h-8 rotate-45 relative z-10" />
-            <span className="absolute inset-0 rounded-full bg-esence-brown/5 animate-ping opacity-75"></span>
-          </div>
-
-          <div>
-            <h1 className="text-3xl font-bold tracking-wider text-esence-dark flex items-center justify-center gap-2 font-serif">
-              Traveler <Sparkles className="w-5 h-5 text-esence-gold" />
-            </h1>
-            <p className="text-esence-dark/70 text-sm mt-2 tracking-wide font-light">
-              旅遊行程規劃全新重構版已就緒
-            </p>
-          </div>
-
-          <hr className="w-full border-esence-sand/60" />
-
-          <div className="w-full flex flex-col gap-4 text-left">
-            <div className="bg-esence-cream/40 border border-esence-sand/40 rounded p-4 text-xs text-esence-dark/95 leading-relaxed font-mono">
-              <div className="font-semibold text-esence-brown mb-2">// 專案狀態</div>
-              <div>• Tailwind CSS v3: 載入成功</div>
-              <div>• Ant Design v6: 載入成功</div>
-              <div>• Lucide Icons: 載入成功</div>
-              <div>• PWA Plugin: 已設定</div>
-            </div>
-
-            <Button
-              type="primary"
-              size="large"
-              icon={loading ? <Spin size="small" /> : <Compass className="w-4 h-4 mr-2 inline" />}
-              onClick={handleTestClick}
-              disabled={loading}
-              className="w-full bg-esence-brown hover:bg-esence-gold border-none font-medium h-12 flex items-center justify-center text-white"
-            >
-              {loading ? '正在測試 Antd 組件...' : '測試 Ant Design & 動效'}
-            </Button>
-          </div>
-
-          <div className="text-[10px] text-esence-gold tracking-widest uppercase">
-            Esence Art Direction Active
-          </div>
-        </div>
-      </div>
+    <ConfigProvider theme={customTheme}>
+      <HomePage 
+        onSelectTrip={handleSelectTrip} 
+        onOpenPackingList={handleOpenPackingList} 
+      />
     </ConfigProvider>
   );
 }
