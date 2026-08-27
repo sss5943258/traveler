@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply font-sans text-esence-dark bg-esence-cream min-h-screen antialiased;
+    scrollbar-width: none;
+    overflow-y: auto;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Elegant Headings using Noto Serif TC */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-medium tracking-wide text-esence-dark;
+  }
+}
+
+@layer components {
+  /* Premium Minimalist Card Design */
+  .esence-card {
+    @apply bg-white border border-esence-sand/60 rounded-lg p-6 shadow-fine transition-all duration-300;
+  }
+
+  .esence-card-hover {
+    @apply esence-card hover:-translate-y-1 hover:shadow-premium hover:border-esence-gold/40 cursor-pointer;
+  }
+
+  /* Esence Styled Buttons */
+  .btn-esence-primary {
+    @apply bg-esence-brown text-white px-6 py-3 rounded-sm font-medium tracking-wider transition-all duration-300 hover:bg-esence-gold hover:-translate-y-0.5 active:translate-y-0 shadow-sm;
+  }
+
+  .btn-esence-outline {
+    @apply border border-esence-brown text-esence-brown px-6 py-3 rounded-sm font-medium tracking-wider transition-all duration-300 hover:bg-esence-brown hover:text-white hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  /* Fine Scrollbars for lists (if needed) */
+  .fine-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(88, 63, 36, 0.2) transparent;
+  }
+
+  .fine-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .fine-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(88, 63, 36, 0.2);
+    border-radius: 2px;
+  }
+}
