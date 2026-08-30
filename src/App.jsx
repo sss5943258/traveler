@@ -2,24 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ConfigProvider } from 'antd';
 import HomePage from './components/HomePage';
 import PackingListPage from './components/PackingListPage';
+import TripPage from './components/TripPage'; // 引入重構後的排行程頁面
 import { customTheme } from './theme'; // 引入已抽出的本質旅行設計主題變數
-
-// 模擬原本專案的 TripPage，後續步驟會再對此頁面進行精細重構
-// 這裡先放一個暫時的 Placeholder 頁面，方便首頁點擊行程時能顯示畫面
-function TempTripPage({ tripId, onBack }) {
-  return (
-    <div className="min-h-screen bg-esence-cream flex flex-col items-center justify-center p-6 text-center">
-      <h2 className="text-2xl font-serif text-esence-brown mb-4">行程詳細內容</h2>
-      <p className="text-esence-dark/70 mb-6 font-light">行程 ID: {tripId} (重構中...)</p>
-      <button 
-        onClick={onBack}
-        className="btn-esence-outline border-esence-brown text-esence-brown hover:bg-esence-brown hover:text-white px-6 py-2 transition-colors"
-      >
-        返回首頁
-      </button>
-    </div>
-  );
-}
 
 /**
  * App 元件 (應用程式主入口)
@@ -99,11 +83,11 @@ export default function App() {
     );
   }
 
-  // 2. 若 activeTripId 存在，顯示「行程詳情」頁面 (目前使用 TempTripPage 替代)
+  // 2. 若 activeTripId 存在，顯示「行程詳情」頁面 (使用重構後的響應式三欄 TripPage)
   if (activeTripId) {
     return (
       <ConfigProvider theme={customTheme}>
-        <TempTripPage tripId={activeTripId} onBack={handleBackToHome} />
+        <TripPage tripId={activeTripId} onBack={handleBackToHome} />
       </ConfigProvider>
     );
   }

@@ -2,11 +2,15 @@
 
 :root {
   /* 本質旅行設計色調 */
-  --primary: #583f24;          /* 深木褐 */
-  --primary-dark: #9e7a4e;     /* 麥穗金 */
+  --primary: #583f24;
+  /* 深木褐 */
+  --primary-dark: #9e7a4e;
+  /* 麥穗金 */
   --text-white: #ffffff;
-  --text-main: #2C2A29;        /* 炭灰褐 */
-  --text-muted: #7A7571;       /* 溫暖灰 */
+  --text-main: #2C2A29;
+  /* 炭灰褐 */
+  --text-muted: #7A7571;
+  /* 溫暖灰 */
   --bg-overlay: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(88, 63, 36, 0.1);
   --glass-shadow: 0 4px 20px rgba(88, 63, 36, 0.04);
@@ -20,12 +24,21 @@
   font-family: 'Noto Sans TC', sans-serif;
 }
 
+html {
+  overflow-x: hidden;
+  /* 防止任何元素造成橫向溢出 */
+}
+
 body {
-  background-color: #FAF8F5; /* 暖象牙白背景，取代富士山櫻花背景 */
+  background-color: #FAF8F5;
+  /* 暖象牙白背景，取代富士山櫻花背景 */
   color: var(--text-main);
   min-height: 100vh;
   scrollbar-width: none;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* 防止手機版橫向溢出產生空白區域 */
+  max-width: 100vw;
 }
 
 body::-webkit-scrollbar {
@@ -33,7 +46,10 @@ body::-webkit-scrollbar {
 }
 
 /* 標題與字體質感升級 */
-.title, .home-title, .modal-title, .attraction-name {
+.title,
+.home-title,
+.modal-title,
+.attraction-name {
   font-family: 'Noto Serif TC', serif !important;
   font-weight: 600 !important;
 }
@@ -42,6 +58,18 @@ body::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  /* 確保整個 app 不超出視窗寬度 */
+}
+
+.trip-main-layout {
+  width: 100%;
+}
+
+.trip-content-wrapper {
+  width: 100%;
 }
 
 /* Glassmorphism 質感改進 */
@@ -55,11 +83,15 @@ body::-webkit-scrollbar {
 
 /* Header & Date Selector */
 .header {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 1.5rem 1rem 1rem;
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom-left-radius: 8px; /* 更加俐落的直角 */
+  border-bottom-left-radius: 8px;
+  /* 更加俐落的直角 */
   border-bottom-right-radius: 8px;
   background: rgba(250, 248, 245, 0.85);
   border-bottom: 1px solid var(--glass-border);
@@ -79,7 +111,8 @@ body::-webkit-scrollbar {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--primary);
-  text-shadow: none; /* 移除發光，改為高雅純色 */
+  text-shadow: none;
+  /* 移除發光，改為高雅純色 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -104,8 +137,12 @@ body::-webkit-scrollbar {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 0.5rem;
   scrollbar-width: none;
+  max-width: 100%;
+  /* 防止超出父容器寬度 */
+  min-width: 0;
 }
 
 .date-selector::-webkit-scrollbar {
@@ -118,7 +155,8 @@ body::-webkit-scrollbar {
   min-height: 52px;
   border: 1px solid rgba(88, 63, 36, 0.08);
   background: rgba(255, 255, 255, 0.7);
-  border-radius: 4px; /* 直角質感 */
+  border-radius: 4px;
+  /* 直角質感 */
   cursor: pointer;
   font-weight: 500;
   display: flex;
@@ -151,9 +189,9 @@ body::-webkit-scrollbar {
 .main-content {
   flex: 1;
   padding: 1.5rem 1rem;
-  max-width: 600px;
-  margin: 0 auto;
   width: 100%;
+  min-width: 0;
+  /* 防止 flex child 超出父容器 */
 }
 
 .schedule-list {
@@ -202,7 +240,8 @@ body::-webkit-scrollbar {
 
 /* Card */
 .card {
-  border-radius: 6px; /* 經典微直角 */
+  border-radius: 6px;
+  /* 經典微直角 */
   padding: 1.25rem;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   background: #ffffff;
@@ -300,6 +339,7 @@ body::-webkit-scrollbar {
     opacity: 0;
     transform: scale(0.98) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -554,8 +594,13 @@ body::-webkit-scrollbar {
 }
 
 @keyframes lightboxFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .lightbox-img-wrap {
@@ -572,6 +617,7 @@ body::-webkit-scrollbar {
     transform: scale(0.95);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -815,21 +861,48 @@ body::-webkit-scrollbar {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.top-navbar {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 0.75rem;
+  height: 64px;
+  box-sizing: border-box;
+  z-index: 10;
 }
 
 /* Desktop Multi-column Layout Hook */
 @media (min-width: 768px) {
   .app-container {
-    flex-direction: row;
+    flex-direction: column;
     height: 100vh;
+    overflow: hidden;
+  }
+
+  .trip-main-layout {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
   }
 
   .header {
     width: 300px;
-    height: 100vh;
+    height: 100%;
     border-radius: 0;
     border-right: 1px solid var(--glass-border);
     display: flex;
@@ -846,17 +919,53 @@ body::-webkit-scrollbar {
     width: 100%;
   }
 
+  .trip-content-wrapper {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    width: auto;
+    height: 100%;
+    overflow: hidden;
+  }
+
   .main-content {
     flex: 1;
+    width: 50%;
     overflow-y: auto;
     padding: 2rem;
     max-width: none;
   }
 
+  .edit-panel {
+    width: 50%;
+    height: 100%;
+    background: #ffffff;
+    border-left: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .edit-placeholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 85%;
+    height: 85%;
+    margin: auto;
+    border: 2px dashed rgba(158, 122, 78, 0.35);
+    border-radius: 8px;
+    background-color: #FAF8F5;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(88, 63, 36, 0.02);
+  }
+
   .schedule-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 }
 
@@ -867,7 +976,8 @@ body::-webkit-scrollbar {
   align-items: stretch;
   justify-content: center;
   padding: 2rem 1rem;
-  background: #FAF8F5; /* 與背景統一的象牙白 */
+  background: #FAF8F5;
+  /* 與背景統一的象牙白 */
   overflow: hidden;
 }
 
@@ -941,7 +1051,8 @@ body::-webkit-scrollbar {
   width: 100%;
   padding: 1rem 1.2rem;
   border: 1px solid var(--glass-border);
-  border-radius: 4px; /* 直角化 */
+  border-radius: 4px;
+  /* 直角化 */
   cursor: pointer;
   text-align: left;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -977,7 +1088,8 @@ body::-webkit-scrollbar {
 }
 
 .packing-icon {
-  background: linear-gradient(135deg, #FAF8F5, #E6E1DA); /* 減法自然色系 */
+  background: linear-gradient(135deg, #FAF8F5, #E6E1DA);
+  /* 減法自然色系 */
   color: var(--primary);
   border: 1px solid var(--glass-border);
 }
@@ -1419,4 +1531,11 @@ body::-webkit-scrollbar {
 .packing-check-text {
   font-size: 0.9rem;
   color: var(--text-main);
+}
+
+/* 高亮選取卡片樣式 */
+.card.active-card {
+  border-color: var(--primary-dark) !important;
+  box-shadow: 0 4px 15px rgba(88, 63, 36, 0.08) !important;
+  transform: translateY(-2px);
 }
