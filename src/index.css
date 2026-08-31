@@ -1129,10 +1129,11 @@ body::-webkit-scrollbar {
 .home-loading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   color: var(--primary);
   font-size: 1rem;
-  margin-top: 30vh;
+  margin: auto;
 }
 
 .home-error {
