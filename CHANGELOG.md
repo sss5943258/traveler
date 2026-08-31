@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **調整 Vite 基底路徑**：於 `vite.config.js` 設定 `base: '/traveler/'`，確保專案發布至 GitHub Pages 非網域根目錄（`/traveler/`）時，靜態資源（CSS, JS）能正常加載。
 
+### Fixed
+- **Loading 畫面水平垂直置中**：修正首頁載入中（`.home-loading`）的 CSS 排版，加入 `justify-content: center` 並將 `margin-top: 30vh` 改為 `margin: auto`，以確保載入文字與旋轉圖示在畫面上完美居中。
+
 ## [0.3.0] - 2026-08-30
 
 ### Added
