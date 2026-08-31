@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-08-31
+
+### Added
+- **GitHub Pages 自動部署支援**：建立 `.github/workflows/deploy.yml` 檔案，利用 GitHub Actions 自動打包並發布 `dist/` 目錄的靜態資源至 GitHub Pages（在推送到 `main` 分支時觸發）。
+
+### Changed
+- **調整 Vite 基底路徑**：於 `vite.config.js` 設定 `base: '/traveler/'`，確保專案發布至 GitHub Pages 非網域根目錄（`/traveler/`）時，靜態資源（CSS, JS）能正常加載。
+
 ## [0.3.0] - 2026-08-30
 
 ### Added
