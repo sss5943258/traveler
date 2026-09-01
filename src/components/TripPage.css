@@ -532,3 +532,68 @@
     gap: 1rem;
   }
 }
+
+/* ── 備案導覽與右上角 1/N 計數器優化 ───────────────── */
+.sortable-group {
+  position: relative;
+}
+
+.backup-badge-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.15rem 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.backup-count-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(88, 63, 36, 0.08);
+  border: 1px solid rgba(88, 63, 36, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* 左右切換導覽箭頭 (電腦版點擊切換) */
+.backup-nav-arrow {
+  position: absolute;
+  top: 55%;
+  transform: translateY(-50%);
+  z-index: 15;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(88, 63, 36, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.backup-nav-arrow:hover {
+  background: #ffffff;
+  color: var(--primary-dark);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(88, 63, 36, 0.2);
+}
+
+.backup-nav-arrow.left-arrow {
+  left: 4px;
+}
+
+.backup-nav-arrow.right-arrow {
+  right: 4px;
+}
+
+@media (max-width: 768px) {
+  .backup-nav-arrow {
+    display: none !important;
+  }
+}

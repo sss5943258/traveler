@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Share2, Plane, Calendar, ArrowDown, ChevronRight, FileText } from 'lucide-react'
+import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText } from 'lucide-react'
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -206,11 +206,35 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly,
 function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly, activeItemId }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const containerRef = useRef(null)
+  const scrollRef = useRef(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const hasBackups = groupItems.length > 1
 
   // 合併 React Ref 指標，以利於長按拖曳時的 DOM 控制
   const handleRef = (node) => {
     setNodeRef(node)
     containerRef.current = node
+  }
+
+  // 計算與記錄目前滾動位置對應的卡片索引
+  const handleScroll = () => {
+    if (!scrollRef.current) return
+    const width = scrollRef.current.clientWidth
+    if (width > 0) {
+      const idx = Math.round(scrollRef.current.scrollLeft / width)
+      setActiveIndex(idx)
+    }
+  }
+
+  // 滾動至指定的卡片索引
+  const scrollToIndex = (index) => {
+    if (!scrollRef.current) return
+    const width = scrollRef.current.clientWidth
+    scrollRef.current.scrollTo({
+      left: index * width,
+      behavior: 'smooth'
+    })
   }
 
   // 行程列表拖曳手勢判定邏輯 (避免干擾手機滑動滾網頁的體驗)
@@ -223,7 +247,6 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAdd
     let startX = 0
     let startY = 0
 
-    // 長按觸碰 150ms 後判定為拖曳狀態，鎖定網頁上下滾動
     const handleStart = (e) => {
       if (timer) clearTimeout(timer)
       touchActionApplied = false
@@ -239,7 +262,6 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAdd
       }, 150)
     }
 
-    // 當手指移動位移超過 6px 且尚未進入拖曳狀態時，判定為滾動網頁，取消長按拖曳
     const handleMove = (e) => {
       if (!touchActionApplied) {
         const touch = e.touches?.[0]
@@ -257,7 +279,6 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAdd
       }
     }
 
-    // 觸控結束時還原所有設定值
     const handleEnd = () => {
       if (timer) {
         clearTimeout(timer)
@@ -290,8 +311,50 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAdd
   }
 
   return (
-    <div ref={handleRef} style={style} {...attributes} {...listeners} className="sortable-group w-full">
-      <div className="horizontal-scroll">
+    <div ref={handleRef} style={style} {...attributes} {...listeners} className="sortable-group w-full relative">
+      {/* 右上角計數器 Badge (僅在有備案時顯示 1/2) */}
+      {hasBackups && (
+        <div className="backup-badge-header">
+          <span className="backup-count-badge">
+            {activeIndex + 1} / {groupItems.length}
+          </span>
+        </div>
+      )}
+
+      {/* 左右導覽箭頭按鈕 (點擊切換備案) */}
+      {hasBackups && activeIndex > 0 && (
+        <button
+          type="button"
+          className="backup-nav-arrow left-arrow"
+          onClick={(e) => {
+            e.stopPropagation()
+            scrollToIndex(activeIndex - 1)
+          }}
+          title="上一項"
+        >
+          <ChevronLeft size={18} />
+        </button>
+      )}
+
+      {hasBackups && activeIndex < groupItems.length - 1 && (
+        <button
+          type="button"
+          className="backup-nav-arrow right-arrow"
+          onClick={(e) => {
+            e.stopPropagation()
+            scrollToIndex(activeIndex + 1)
+          }}
+          title="下一項"
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
+
+      <div
+        ref={scrollRef}
+        className="horizontal-scroll"
+        onScroll={handleScroll}
+      >
         {groupItems.map((item, idx) => (
           <div key={item.id} className="card-wrapper w-full">
             <Card

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **第一層 Component 統一 DTO 化**：所有 React 元件 (`HomePage`, `TripPage`, `ScheduleFormModal`, `DeleteConfirmModal`, `TripInfoFormModal`, `NewTripModal`, `PackingListPage`) 改以標準 DTO 呼叫 `apiService`。
 - **攜帶清單頁面視覺對齊**：重構 `PackingListPage.jsx` 解耦舊式內聯 `fetch` 呼叫，將自訂 Checkbox 與按鈕視覺全面統一為專案深木褐色調與莫蘭迪質感。
+- **備案行程電腦版導覽優化**：於卡片右上角呈現 `1 / N` 頁數計數標籤，並於電腦版提供左右導覽箭頭按鈕 (`‹` `›`)，實現滑鼠一鍵平滑切換查看備案景點。
 - **無縫雙後端切換 (`config.js`)**：提供 `API_MODE` (`'GAS'` 或 `'NET_CORE'`) 設定，可在 Google Apps Script 與 .NET Core API 之間一鍵切換，無需調整任何前端畫面邏輯。
 
 ### Fixed
