@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader, ImagePlus, Trash2 } from 'lucide-react'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import ImageLightbox from './ImageLightbox'
 import './Modals.css'
 
@@ -178,18 +177,12 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
       reader.onload = async (ev) => {
         try {
           const base64 = ev.target.result
-          const res = await cachedFetch(`${API_URL}/trips/${tripId}/info/upload`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: prefix,
-              imageBase64: base64,
-              fileName: `${tripId}_${prefix}_${Date.now()}.${file.name.split('.').pop()}`
-            })
+          const result = await apiService.uploadTripImage({
+            tripId,
+            type: prefix,
+            imageBase64: base64,
+            fileName: `${tripId}_${prefix}_${Date.now()}.${file.name.split('.').pop()}`
           })
-
-          if (!res.ok) throw new Error('圖片上傳失敗')
-          const result = await res.json()
           resolve(result)
         } catch (err) {
           reject(err)
@@ -253,13 +246,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
       }
 
       // 3. 發送表單主體資料更新請求
-      const res = await cachedFetch(`${API_URL}/trips/${tripId}/info`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      })
-
-      if (!res.ok) throw new Error('更新失敗')
+      await apiService.updateTripInfo(tripId, updateData)
 
       onSaved(updateData)
     } catch (err) {

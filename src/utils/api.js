@@ -19,22 +19,26 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 // Retries up to `maxRetries` times, starting with `initialDelayMs` (doubles
 // each attempt).
 // ---------------------------------------------------------------------------
-const fetchWithRetry = async (url, options = {}, maxRetries = 3, initialDelayMs = 2000) => {
+const fetchWithRetry = async (url, options = {}, maxRetries = 3, initialDelayMs = 1500) => {
   let delay = initialDelayMs
-  let res
+  let lastErr
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    res = await fetch(url, options)
-    if (res.status !== 429) return res
-    if (attempt < maxRetries) {
+    try {
+      const res = await fetch(url, options)
+      if (res.status !== 429) return res
       console.warn(
         `[api] 429 received for ${url}. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`
       )
+    } catch (err) {
+      lastErr = err
+      console.warn(`[api] Network fetch failed for ${url} (attempt ${attempt + 1}/${maxRetries + 1}):`, err)
+    }
+    if (attempt < maxRetries) {
       await sleep(delay)
       delay *= 2 // exponential backoff
     }
   }
-  // All retries exhausted — return the last response as-is so callers can handle it.
-  return res
+  throw lastErr || new Error(`[api] Failed to fetch ${url}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -43,12 +47,8 @@ const fetchWithRetry = async (url, options = {}, maxRetries = 3, initialDelayMs 
 // A fetch wrapper that:
 //   1. Caches GET responses in sessionStorage for CACHE_TTL_MS (5 min).
 //   2. Deduplicates concurrent GET requests for the same URL.
-//   3. Retries automatically with exponential backoff on 429 (up to 3 times).
-//   4. Invalidates ALL cached GET entries on any POST (mutation) request.
-//
-// Usage:
-//   import { cachedFetch } from '../utils/api'
-//   const res = await cachedFetch(`${API_URL}?action=getTrips`)
+//   3. Retries automatically with exponential backoff on network errors & 429.
+//   4. Invalidates ALL cached GET entries on any POST/PUT/DELETE request.
 // ---------------------------------------------------------------------------
 export const cachedFetch = async (url, options = {}) => {
   const isGet = !options.method || options.method.toUpperCase() === 'GET'
@@ -63,8 +63,8 @@ export const cachedFetch = async (url, options = {}) => {
     }
     keysToRemove.forEach((k) => sessionStorage.removeItem(k))
 
-    // Execute mutation request directly (no caching, no retry).
-    return fetch(url, options)
+    // Execute mutation request with retry.
+    return fetchWithRetry(url, options)
   }
 
   // ── GET path ───────────────────────────────────────────────────────────────

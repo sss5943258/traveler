@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Save, Loader } from 'lucide-react'
 import { TimePicker } from 'antd'
 import dayjs from 'dayjs'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import './Modals.css'
 
 /**
@@ -80,29 +79,20 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
 
       const isPlaceholder = isEdit && item?.isDefaultPlaceholder;
 
-      // 若是編輯「非佔位」的既有行程，發送 PUT 請求更新特定 ID 的行程
+      // 若是編輯「非佔位」的既有行程，呼叫 apiService.updateSchedule
       if (isEdit && !isPlaceholder) {
-        const res = await cachedFetch(`${API_URL}/schedules/${item.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        })
-        if (!res.ok) throw new Error('儲存失敗')
+        await apiService.updateSchedule(item.id, form)
       } else {
-        // 新增行程或寫入預留佔位卡片，向後端發送 POST 請求建立新行程
-        const res = await cachedFetch(`${API_URL}/schedules`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tripId,
-            day: targetDay,
-            date: targetDate,
-            groupId: isEdit ? item.groupId : (groupId || null),
-            altOrder: isEdit ? item.altOrder : (altOrder || 0),
-            ...form
-          }),
+        // 新增行程或寫入預留佔位卡片，呼叫 apiService.addSchedule
+        await apiService.addSchedule({
+          tripId,
+          id: isEdit ? item.id : undefined,
+          day: targetDay,
+          date: targetDate,
+          groupId: isEdit ? item.groupId : (groupId || undefined),
+          altOrder: isEdit ? item.altOrder : (altOrder || 0),
+          ...form
         })
-        if (!res.ok) throw new Error('新增失敗')
       }
 
       // 組裝儲存後的行程物件，並回傳給父元件以更新前端 UI 畫面

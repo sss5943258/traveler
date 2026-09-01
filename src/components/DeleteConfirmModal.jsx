@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trash2, Loader } from 'lucide-react'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import './Modals.css'
 
 export default function DeleteConfirmModal({ item, onClose, onDeleted, onConfirm }) {
@@ -16,13 +15,8 @@ export default function DeleteConfirmModal({ item, onClose, onDeleted, onConfirm
       if (onConfirm) {
         await onConfirm();
       } else {
-        const res = await cachedFetch(`${API_URL}/schedules/${item.id}`, {
-          method: 'DELETE',
-        })
-        if (!res.ok) throw new Error('刪除失敗')
+        await apiService.deleteSchedule(item.id)
       }
-      
-      // no-cors 下直接假設成功
       onDeleted()
     } catch (err) {
       setError(err.message)

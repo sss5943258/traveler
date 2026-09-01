@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Save, Loader, Plane } from 'lucide-react'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import './Modals.css'
 
 export default function NewTripModal({ onClose, onCreated }) {
@@ -27,13 +26,7 @@ export default function NewTripModal({ onClose, onCreated }) {
     setIsSaving(true)
     setError(null)
     try {
-      const res = await cachedFetch(`${API_URL}/trips`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (data.error || data.status === 'error') throw new Error(data.error || data.message)
+      const data = await apiService.createTrip(form)
       onCreated(data)
     } catch (err) {
       setError(err.message)

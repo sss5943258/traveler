@@ -4,8 +4,7 @@ import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Share2, 
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import ScheduleFormModal, { ScheduleForm } from './ScheduleFormModal'
 import TripInfoFormModal, { TripInfoForm } from './TripInfoFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
@@ -371,10 +370,7 @@ export default function TripPage({ tripId, onBack }) {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await cachedFetch(`${API_URL}?action=getTripDetails&tripId=${tripId}`)
-      if (!res.ok) throw new Error('網路請求發生錯誤')
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      const data = await apiService.getTripDetails(tripId)
 
       let updatedJourneys = data.journeys || []
       const hasDayZero = updatedJourneys.some(j => j.day === 0)
@@ -451,16 +447,7 @@ export default function TripPage({ tripId, onBack }) {
     })
 
     try {
-      await cachedFetch(`${API_URL}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          action: 'updateScheduleOrder',
-          tripId: tripId,
-          day: selectedDay,
-          orderedIds: newGroupOrder
-        })
-      })
+      await apiService.updateScheduleOrder(tripId, selectedDay, newGroupOrder)
     } catch (err) {
       console.error('更新順序失敗:', err)
     }
@@ -1198,15 +1185,7 @@ export default function TripPage({ tripId, onBack }) {
               dataToClear.tripRemark = '';
             }
 
-            await cachedFetch(API_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain' },
-              body: JSON.stringify({
-                action: 'updateTripInfo',
-                tripId,
-                data: dataToClear
-              })
-            });
+            await apiService.updateTripInfo(tripId, dataToClear);
 
             setTripsInfo(prev => ({
               ...prev,

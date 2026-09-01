@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2 } from 'lucide-react'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import NewTripModal from './NewTripModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import './HomePage.css'
@@ -199,19 +198,11 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
   const fetchTrips = async () => {
     setIsLoading(true)
     setError(null)
-    const requestUrl = `${API_URL}?action=getTrips` // 改用 GAS 的 action 參數格式
-    console.log('[HomePage] 準備呼叫 GAS API 網址:', requestUrl)
-
     try {
-      const res = await fetch(requestUrl)
-      console.log('[HomePage] GAS API 回應狀態:', res.status, res.ok)
-      if (!res.ok) throw new Error(`網路請求發生錯誤，HTTP 狀態碼: ${res.status}`)
-      const data = await res.json()
-      console.log('[HomePage] GAS API 回傳資料:', data)
-      if (data.error) throw new Error(data.error)
+      const data = await apiService.getTrips()
       setTrips(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('[HomePage] 呼叫 GAS API 發生異常錯誤:', err)
+      console.error('[HomePage] 讀取行程發生錯誤:', err)
       setError(err.message)
     } finally {
       setIsLoading(false)
@@ -238,19 +229,10 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
 
   /**
    * handleDeleteConfirm 刪除確認 API 請求函式
-   * 當使用者在確認視窗中點選「確認刪除」時呼叫，
-   * 向 GAS 發送 POST 請求並帶上 `{ action: 'deleteTrip', tripId }` 載荷
+   * 當使用者在確認視窗中點選「確認刪除」時呼叫
    */
   const handleDeleteConfirm = async () => {
-    console.log('[HomePage] 準備發送刪除行程請求，ID:', deletingTrip.tripId)
-    const res = await cachedFetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // 配合 GAS 的 text/plain 以避免複雜的 CORS Preflight 預檢請求
-      body: JSON.stringify({ action: 'deleteTrip', tripId: deletingTrip.tripId }),
-    })
-
-    if (!res.ok) throw new Error('刪除失敗')
-    console.log('[HomePage] 行程刪除成功')
+    await apiService.deleteTrip(deletingTrip.tripId)
   }
 
   /**

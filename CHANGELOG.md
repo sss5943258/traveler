@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-09-01
+
+### Added
+- **API 服務適配器層 (`apiService.js`)**：採用 Adapter Pattern 與 Strategy Pattern，建立全域統一 API 服務層，完美將前端 UI 元件與後端通訊傳輸細節完全解耦。
+
+### Changed
+- **第一層 Component 統一 DTO 化**：所有 React 元件 (`HomePage`, `TripPage`, `ScheduleFormModal`, `DeleteConfirmModal`, `TripInfoFormModal`, `NewTripModal`) 改以標準 DTO 呼叫 `apiService`。
+- **無縫雙後端切換 (`config.js`)**：提供 `API_MODE` (`'GAS'` 或 `'NET_CORE'`) 設定，可在 Google Apps Script 與 .NET Core API 之間一鍵切換，無需調整任何前端畫面邏輯。
+
+### Fixed
+- **API 通訊與 `Failed to fetch` 重試修復**：強化 `src/utils/api.js` 中 `fetchWithRetry` 異常捕獲與指數退避重試機制，徹底排除網路瞬斷或跨域重導向導致的 `Failed to fetch` 錯誤。
+
 ## [0.5.0] - 2026-09-01
 
 ### Added
