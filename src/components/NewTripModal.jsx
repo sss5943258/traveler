@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Save, Loader, Plane } from 'lucide-react'
 import { API_URL } from '../config'
 import { cachedFetch } from '../utils/api'
+import './Modals.css'
 
 export default function NewTripModal({ onClose, onCreated }) {
   const [form, setForm] = useState({

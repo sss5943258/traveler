@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Trash2, Loader } from 'lucide-react'
 import { API_URL } from '../config'
 import { cachedFetch } from '../utils/api'
+import './Modals.css'
 
 export default function DeleteConfirmModal({ item, onClose, onDeleted, onConfirm }) {
   const [isDeleting, setIsDeleting] = useState(false)

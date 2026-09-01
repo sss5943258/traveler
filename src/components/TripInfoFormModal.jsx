@@ -4,6 +4,7 @@ import { X, Loader, ImagePlus, Trash2 } from 'lucide-react'
 import { API_URL } from '../config'
 import { cachedFetch } from '../utils/api'
 import ImageLightbox from './ImageLightbox'
+import './Modals.css'
 
 /**
  * TripInfoForm 元件 (獨立的去回程航班與行程備註表單元件)

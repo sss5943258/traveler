@@ -4,6 +4,7 @@ import { API_URL } from '../config'
 import { cachedFetch } from '../utils/api'
 import NewTripModal from './NewTripModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import './HomePage.css'
 
 // ─── 單個可左滑的行程項目 ───────────────────────────────────────
 const DELETE_BTN_WIDTH = 80 // px
@@ -264,10 +265,10 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
   // 1. 載入中畫面
   if (isLoading) {
     return (
-      <div className="home-container">
-        <div className="home-loading">
-          <Loader size={32} className="spin-icon" />
-          <span>正在載入旅程清單...</span>
+      <div className="loading-screen-full">
+        <div className="loading-content-box">
+          <Loader size={40} className="spin-icon text-[var(--primary-dark)]" />
+          <span className="loading-text">正在載入旅程清單...</span>
         </div>
       </div>
     )
@@ -276,10 +277,10 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
   // 2. 錯誤顯示畫面
   if (error) {
     return (
-      <div className="home-container">
-        <div className="home-error">
-          <h2>讀取失敗 🥲</h2>
-          <p>{error}</p>
+      <div className="loading-screen-full">
+        <div className="loading-content-box">
+          <h2 className="loading-title text-2xl">讀取失敗 🥲</h2>
+          <p className="loading-subtitle">{error}</p>
         </div>
       </div>
     )

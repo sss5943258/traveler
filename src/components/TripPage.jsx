@@ -9,6 +9,7 @@ import { cachedFetch } from '../utils/api'
 import ScheduleFormModal, { ScheduleForm } from './ScheduleFormModal'
 import TripInfoFormModal, { TripInfoForm } from './TripInfoFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import './TripPage.css'
 
 // 輔助函式：簡化過長文字
 const truncateText = (text, maxLength = 80) => {
@@ -584,20 +585,30 @@ export default function TripPage({ tripId, onBack }) {
   // --- 資料加載/錯誤狀態處理渲染 ---
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center p-6 text-center text-[var(--primary)] gap-4">
-        <Loader size={36} className="spin-icon text-[var(--primary-dark)]" />
-        <h2 className="title text-xl font-semibold">正在載入行程，請稍候...</h2>
-        <p className="text-sm opacity-70">等待 API 回應中，請耐心等候。</p>
+      <div className="loading-screen-full">
+        <div className="loading-content-box">
+          <Loader size={44} className="spin-icon text-[var(--primary-dark)] mb-2" />
+          <h2 className="loading-title">
+            正在載入行程，請稍候...
+          </h2>
+          <p className="loading-subtitle">
+            等待 API 回應中，請耐心等候。
+          </p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center p-6 text-center text-[var(--primary)]">
-        <h2 className="title text-2xl font-bold mb-4">讀取失敗 🥲</h2>
-        <p className="mb-6">{error}</p>
-        <button className="btn-esence-outline px-6 py-2" onClick={onBack}>返回首頁</button>
+      <div className="loading-screen-full">
+        <div className="loading-content-box">
+          <h2 className="loading-title text-2xl">
+            讀取失敗 🥲
+          </h2>
+          <p className="loading-subtitle mb-4">{error}</p>
+          <button className="btn-esence-outline px-6 py-2" onClick={onBack}>返回首頁</button>
+        </div>
       </div>
     )
   }
@@ -703,10 +714,7 @@ export default function TripPage({ tripId, onBack }) {
                 return (
                   <button
                     key={j.day}
-                    className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] border text-sm font-medium rounded flex items-center justify-center transition-all cursor-pointer ${isActive
-                      ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow'
-                      : 'bg-white/80 hover:bg-white text-[var(--text-main)] border-[rgba(88,63,36,0.08)]'
-                      }`}
+                    className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] ${isActive ? 'active' : ''}`}
                     onClick={() => {
                       setSelectedDay(j.day);
                       if (!isMobile) {
@@ -722,10 +730,7 @@ export default function TripPage({ tripId, onBack }) {
               return (
                 <button
                   key={j.day}
-                  className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] border text-sm font-medium rounded flex flex-col items-center justify-center transition-all cursor-pointer ${isActive
-                    ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow'
-                    : 'bg-white/80 hover:bg-white text-[var(--text-main)] border-[rgba(88,63,36,0.08)]'
-                    }`}
+                  className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] ${isActive ? 'active' : ''}`}
                   onClick={() => {
                     setSelectedDay(j.day);
                     if (!isMobile) {
@@ -735,7 +740,7 @@ export default function TripPage({ tripId, onBack }) {
                   }}
                 >
                   <span>Day {j.day}</span>
-                  <span className={`date-sub text-[10px] ${isActive ? 'text-white/80' : 'text-[var(--text-muted)]'}`}>
+                  <span className="date-sub">
                     {j.date ? j.date.slice(5) : ''}
                   </span>
                 </button>
@@ -1090,13 +1095,16 @@ export default function TripPage({ tripId, onBack }) {
 
       {/* ─── 以下為手機版/特定操作所需的 Dialog Modals ─── */}
 
-      {/* 手機版：詳細備註 Overlay */}
-      {isMobile && remarkItem && (
+      {/* 備註彈窗（對齊原版 travel-app Modal 架構，套用新版統一色調） */}
+      {remarkItem && (
         <div className="modal-overlay" onClick={() => setRemarkItem(null)}>
-          <div className="modal-content glass form-modal p-6" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setRemarkItem(null)}><X size={20} /></button>
-            <h2 className="modal-title font-serif text-[var(--primary)] text-lg mb-3">{remarkItem.attractionName}</h2>
-            <p className="modal-text text-sm leading-relaxed text-[var(--text-main)]">{remarkItem.remark || '（無備註）'}</p>
+          <div className="modal-content glass" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setRemarkItem(null)}>
+              <X size={20} />
+            </button>
+            <h2 className="modal-title">{remarkItem.attractionName}</h2>
+            <hr className="modal-divider" />
+            <p className="modal-text">{remarkItem.remark || '（無備註）'}</p>
           </div>
         </div>
       )}

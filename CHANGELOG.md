@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-09-01
+
+### Added
+- **Modal 檢視分隔線**：於詳情/備註檢視 Modal 的標題（`modal-title`）與備註內容（`modal-text`）之間新增實線分隔線（`.modal-divider`），以清楚區隔標題與內容。
+
+### Changed
+- **CSS 元件模組化拆分**：將原本單一大型 `index.css` 依 React 元件獨立拆分為專屬 CSS 樣式檔 (`HomePage.css`, `TripPage.css`, `PackingListPage.css`, `Modals.css`, `ImageLightbox.css`)，移除 JSX 內聯樣式 (`style={{ ... }}`)，`index.css` 僅保留全域變數、Tailwind 指令與 Base 設定。
+- **還原 travel-app Modal 原始架構**：對齊原本 `travel-app` 專案簡潔的 Modal 彈窗結構，並全面升級為深木褐色調與莫蘭迪質感 UI。
+
+### Fixed
+- **全域 Loading 畫面垂直水平雙向置中**：修正 `TripPage`、`HomePage` 與 `PackingListPage` 的「正在載入行程，請稍候...」讀取畫面，確保載入文字與旋轉圖示在畫面上完全水平垂直置中。
+- **手機版天數頁籤日期文字消失修復**：修正手機版點選 `DateTab`（如 `Day 2`）時選取狀態因 Tailwind 類別衝突導致日期副標題 (`.date-sub`) 白底白字消失的問題，統一由 `.date-tab.active` 控制高對比度文字。
+
 ## [0.4.0] - 2026-08-31
 
 ### Added

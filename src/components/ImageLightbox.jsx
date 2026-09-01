@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, ZoomIn } from 'lucide-react'
+import './ImageLightbox.css'
 
 /**
  * ImageLightbox

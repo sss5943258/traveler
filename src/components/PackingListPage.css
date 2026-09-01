@@ -1,0 +1,222 @@
+/* ─── PackingListPage Component Styles ─────────────────────────── */
+.packing-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.packing-header {
+  flex-shrink: 0;
+  padding: 1.25rem 1rem 0.85rem;
+  z-index: 10;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  background: rgba(250, 248, 245, 0.85);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.packing-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.packing-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.packing-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Noto Serif TC', serif !important;
+}
+
+.packing-progress {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.packing-progress-bar-wrap {
+  height: 4px;
+  background: var(--glass-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.packing-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-dark), var(--primary));
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.packing-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  scrollbar-width: none;
+}
+
+.packing-body::-webkit-scrollbar {
+  display: none;
+}
+
+.packing-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.packing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  list-style: none;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.packing-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  background: #ffffff;
+  transition: opacity 0.25s ease, background 0.2s ease;
+  box-shadow: 0 2px 8px rgba(88, 63, 36, 0.03);
+}
+
+.packing-item--checked {
+  opacity: 0.55;
+}
+
+.packing-item--checked .packing-item-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.packing-item-check-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.packing-native-check {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.packing-custom-check {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid rgba(88, 63, 36, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.packing-item-check-label:has(.packing-native-check:checked) .packing-custom-check {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  border-color: var(--primary);
+}
+
+.packing-item-check-label:has(.packing-native-check:checked) .packing-custom-check::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.packing-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.packing-essential-star {
+  color: #f6ad55;
+  flex-shrink: 0;
+}
+
+.packing-delete-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(88, 63, 36, 0.25);
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.packing-delete-btn:hover {
+  background: rgba(229, 62, 62, 0.05);
+  color: #e53e3e;
+}
+
+.packing-footer {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(250, 248, 245, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--glass-border);
+}
+
+.packing-essential-check {
+  display: flex;
+  align-items: center;
+}
+
+.packing-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.packing-check-text {
+  font-size: 0.9rem;
+  color: var(--text-main);
+}

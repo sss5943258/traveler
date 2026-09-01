@@ -4,6 +4,7 @@ import { Plus, X, Save, Star, Loader } from 'lucide-react'
 import { API_URL } from '../config'
 import { cachedFetch } from '../utils/api'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import './PackingListPage.css'
 
 // ─── 新增品項 Modal ────────────────────────────────────────────
 function AddItemModal({ onClose, onAdd, isSaving }) {
@@ -239,9 +240,9 @@ export default function PackingListPage({ onBack }) {
       {/* ── Body ─────────────────────────────────────────── */}
       <main className="packing-body">
         {isLoading ? (
-          <div className="packing-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-            <Loader size={24} className="spin-icon" />
-            <span>載入中...</span>
+          <div className="loading-content-box py-20 mx-auto">
+            <Loader size={36} className="spin-icon text-[var(--primary-dark)]" />
+            <span className="loading-text">載入中...</span>
           </div>
         ) : error ? (
           <div className="packing-empty">
