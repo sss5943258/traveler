@@ -12,10 +12,18 @@ All notable changes to this project will be documented in this file.
 - **第一層 Component 統一 DTO 化**：所有 React 元件 (`HomePage`, `TripPage`, `ScheduleFormModal`, `DeleteConfirmModal`, `TripInfoFormModal`, `NewTripModal`, `PackingListPage`) 改以標準 DTO 呼叫 `apiService`。
 - **攜帶清單頁面視覺對齊**：重構 `PackingListPage.jsx` 解耦舊式內聯 `fetch` 呼叫，將自訂 Checkbox 與按鈕視覺全面統一為專案深木褐色調與莫蘭迪質感。
 - **備案行程電腦版導覽優化**：於卡片右上角呈現 `1 / N` 頁數計數標籤，並於電腦版提供左右導覽箭頭按鈕 (`‹` `›`)，實現滑鼠一鍵平滑切換查看備案景點。
+- **行程詳情表單版面與備註填滿優化**：調整行程編輯面板欄位順序（名稱 ➔ 時間 ➔ 備註 ➔ Google Map 連結），並將「備註」Textarea 設定為自動延伸填滿面板剩餘垂直空間。
+- **手機版標題列與天數列置頂暨卡片獨立滾動**：將手機版畫面鎖定為 `100dvh` 全螢幕動態高度，頂部 Title 列與天數頁籤列恆久固定置頂，中段行程卡片區塊獨立垂直滾動，並於切換天數時自動將列表歸零至頂部。
+- **手機端智慧型手勢分流 (備案滑動 vs 天數切換)**：實現手機端手勢智慧判斷，於備案卡片左右滑動可切換備案景點，於無備案卡片或背景空白處滑動可切換天數（附帶 300ms 滑動淡入動畫與天數標籤自動居中）。
+- **行程卡片複製功能 (Copy Schedule Card)**：於行程卡片選單中新增「複製」選項（帶有 Copy 圖示），點擊後複製原卡片內容（時間清空）並自動排列於當天最下方，支援全域半透明 Loader 加載遮罩與即時 State 渲染。
+- **無時間行程卡片標籤隱藏**：當卡片未設定起訖時間時，自動隱藏左上角灰色外框時間標籤（`.time`），維持畫面素雅乾淨。
+- **全域操作 Loading 加載遮罩 (Action Loading Overlay)**：於底層 `src/index.css` 建立全域浮動加載遮罩樣式（`action-loading-overlay`），為非同步 API 快捷操作提供明確且防重複點擊的加載體驗。
+- **CSS 行內樣式規範重構**：將 `ScheduleFormModal` 與 `TripInfoFormModal` 中所有 JSX 行內樣式 (`style={{ ... }}`) 全數抽離至對應的 `Modals.css` 專屬樣式檔。
 - **無縫雙後端切換 (`config.js`)**：提供 `API_MODE` (`'GAS'` 或 `'NET_CORE'`) 設定，可在 Google Apps Script 與 .NET Core API 之間一鍵切換，無需調整任何前端畫面邏輯。
 
 ### Fixed
 - **API 通訊與 `Failed to fetch` 重試修復**：強化 `src/utils/api.js` 中 `fetchWithRetry` 異常捕獲與指數退避重試機制，徹底排除網路瞬斷或跨域重導向導致的 `Failed to fetch` 錯誤。
+- **選取行程卡片頂邊框修復**：修正 `.horizontal-scroll` 頂部內邊距與 overflow 屬性，排除高亮深木褐外框在卡片向上微移時頂邊框遭容器裁切的現象。
 
 ## [0.5.0] - 2026-09-01
 

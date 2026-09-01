@@ -274,8 +274,8 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
         )}
       </div>
 
-      {/* 表單主體滾動區 */}
-      <div className="form-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+      {/* 表單主體區塊：軟性填滿剩餘高度 */}
+      <div className="form-modal-body flex-fill-body">
         <form className="schedule-form" id="tripInfoForm" onSubmit={handleSubmit}>
           {isFlight ? (
             <>
@@ -418,14 +418,13 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
               )}
             </>
           ) : (
-            <div className="form-group">
+            <div className="form-group remark-group">
               <label>行程備註</label>
               <textarea
                 name="tripRemark"
                 value={form.tripRemark}
                 onChange={handleChange}
                 placeholder="在此填寫行前準備、行程備忘等資訊..."
-                rows={6}
               />
             </div>
           )}

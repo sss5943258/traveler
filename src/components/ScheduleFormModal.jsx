@@ -114,7 +114,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
   }
 
   return (
-    <div className="schedule-form-container" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="schedule-form-container">
       {/* 頂部標題區 */}
       <div className="form-modal-header">
         <div>
@@ -132,9 +132,10 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
         )}
       </div>
 
-      {/* 表單內容滾動區域 */}
-      <div className="form-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+      {/* 表單內容區塊：軟性填滿剩餘高度 */}
+      <div className="form-modal-body flex-fill-body">
         <form className="schedule-form" id="scheduleForm" onSubmit={handleSubmit}>
+          {/* 1. 行程名稱 (1 行) */}
           <div className="form-group">
             <label>行程名稱 <span className="required">*</span></label>
             <input
@@ -146,6 +147,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
             />
           </div>
 
+          {/* 2. 時間 (1 行) */}
           <div className="form-group">
             <label>時間</label>
             <TimePicker.RangePicker
@@ -164,28 +166,22 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
                   endTime: dateStrings ? dateStrings[1] : ''
                 }))
               }}
-              style={{
-                width: '100%',
-                padding: '0.6rem 0.85rem',
-                borderRadius: '4px',
-                border: '1px solid rgba(88, 63, 36, 0.15)',
-                background: 'rgba(255, 255, 255, 0.7)',
-                fontSize: '0.95rem'
-              }}
+              className="time-picker-custom"
             />
           </div>
 
-          <div className="form-group">
+          {/* 3. 備註 (自動垂直延伸填滿剩餘高度空間，放置於 Google Map 連結上方) */}
+          <div className="form-group remark-group">
             <label>備註</label>
             <textarea
               name="remark"
               value={form.remark}
               onChange={handleChange}
               placeholder="補充說明、交通方式、注意事項..."
-              rows={3}
             />
           </div>
 
+          {/* 4. Google Map 連結 (1 行) */}
           <div className="form-group">
             <label>Google Map 連結</label>
             <input

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText } from 'lucide-react'
+import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText } from 'lucide-react'
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -45,7 +45,7 @@ const formatDisplayDatetime = (val) => {
  * 當點擊卡片右上角的「...」時彈出的操作選單，提供「新增備案」、「編輯」、「刪除」選項
  * 採用 React Portal 機制，防止下拉選單被父層 CSS overflow: hidden 遮擋
  */
-function CardMenu({ item, onEdit, onDelete, onAddBackup, showDelete, showAddBackup }) {
+function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, showDelete, showAddBackup }) {
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef(null)
@@ -98,6 +98,11 @@ function CardMenu({ item, onEdit, onDelete, onAddBackup, showDelete, showAddBack
           <button className="menu-item" onClick={() => { setOpen(false); onEdit(item) }}>
             <Pencil size={14} /> {item?.isPlaceholder ? '新增' : '編輯'}
           </button>
+          {onCopy && (
+            <button className="menu-item" onClick={() => { setOpen(false); onCopy(item) }}>
+              <Copy size={14} /> 複製
+            </button>
+          )}
           {actualShowDelete && (
             <button className="menu-item danger" onClick={() => { setOpen(false); onDelete(item) }}>
               <Trash2 size={14} /> 刪除
@@ -169,14 +174,20 @@ function ShareMenu({ onShareLink, onShareText, onShareCSV }) {
  * Card 元件 (單個行程卡片)
  * 渲染行程名稱、起訖時間、備註圖示，並處理點選卡片觸發的 callback
  */
-function Card({ item, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly, isActive }) {
+function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isReadOnly, isActive }) {
+  const hasTime = Boolean((item.startTime && item.startTime.trim() !== '') || (item.endTime && item.endTime.trim() !== ''))
+
   return (
     <div
       className={`card glass clickable ${isActive ? 'active-card border-[var(--primary-dark)] shadow-md translate-y-[-2px]' : ''}`}
       onClick={onClick}
     >
       <div className="card-header">
-        <span className="time">{item.startTime}{item.endTime ? ` - ${item.endTime}` : ''}</span>
+        {hasTime ? (
+          <span className="time">{item.startTime}{item.endTime ? ` - ${item.endTime}` : ''}</span>
+        ) : (
+          <div />
+        )}
         <div className="card-actions" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
           {item.altOrder > 0 && <span style={{ fontSize: '0.75rem', color: '#9e7a4e', marginRight: '6px', fontWeight: '800' }}>#備案 {item.altOrder}</span>}
           <button
@@ -187,7 +198,7 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly,
           >
             <MapPin size={18} />
           </button>
-          {!isReadOnly && <CardMenu item={item} onEdit={onEdit} onDelete={onDelete} onAddBackup={onAddBackup} />}
+          {!isReadOnly && <CardMenu item={item} onEdit={onEdit} onDelete={onDelete} onCopy={onCopy} onAddBackup={onAddBackup} />}
         </div>
       </div>
       <h3 className="attraction-name">{item.attractionName}</h3>
@@ -203,7 +214,7 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly,
  * SortableGroup 元件
  * 用於排序列表中的 Dnd-Kit 排序群組包裹元件，處理橫向彈性備案滑動與拖曳排程
  */
-function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAddBackup, isReadOnly, activeItemId }) {
+function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isReadOnly, activeItemId }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const containerRef = useRef(null)
   const scrollRef = useRef(null)
@@ -364,6 +375,7 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onAdd
               onMap={(e) => onMap(e, item)}
               onEdit={() => onEdit(item)}
               onDelete={() => onDelete(item)}
+              onCopy={() => onCopy && onCopy(item)}
               onAddBackup={() => onAddBackup(item)}
               isReadOnly={isReadOnly}
             />
@@ -402,6 +414,7 @@ export default function TripPage({ tripId, onBack }) {
   const [isReadOnly, setIsReadOnly] = useState(false)    // 是否為唯讀模式
 
   // --- 表單與操作狀態 ---
+  const [actionLoading, setActionLoading] = useState(null)    // 全域快捷 API 操作加載提示 (如 '複製行程中...')
   const [remarkItem, setRemarkItem] = useState(null)      // 當前在手機版查看詳情備註的行程
   const [formModal, setFormModal] = useState(null)        // 行程表單狀態：{ mode, item, day, date, groupId, altOrder }
   const [tripInfoModal, setTripInfoModal] = useState(null) // 航班資訊表單狀態：{ type } (outbound/inbound/remark)
@@ -410,6 +423,17 @@ export default function TripPage({ tripId, onBack }) {
 
   // --- 手機與桌面響應式偵測 ---
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const mainContentRef = useRef(null)
+  const [slideAnimation, setSlideAnimation] = useState('')
+
+  // 當天數切換時，自動將行程列表滾動容器歸零頂部，並觸發 300ms 滑動動畫重置
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0
+    }
+    const timer = setTimeout(() => setSlideAnimation(''), 300)
+    return () => clearTimeout(timer)
+  }, [selectedDay])
 
   // 監聽螢幕寬度變化，切換 `isMobile` 狀態以即時適應手機與桌面版版面
   useEffect(() => {
@@ -417,6 +441,72 @@ export default function TripPage({ tripId, onBack }) {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // 手機版在非備案卡片區域左右滑動切換天數
+  useEffect(() => {
+    const el = mainContentRef.current
+    if (!el || !isMobile) return
+
+    let startX = 0
+    let startY = 0
+    let isBackupTouch = false
+
+    const handleTouchStart = (e) => {
+      const touch = e.touches?.[0]
+      if (!touch) return
+      startX = touch.clientX
+      startY = touch.clientY
+
+      // 檢查觸控點是否位於帶有備案的卡片內 (含有 .backup-count-badge)
+      const sortableGroup = e.target.closest('.sortable-group')
+      if (sortableGroup && sortableGroup.querySelector('.backup-count-badge')) {
+        isBackupTouch = true
+        return
+      }
+      isBackupTouch = false
+    }
+
+    const handleTouchEnd = (e) => {
+      if (isBackupTouch) return
+      const touch = e.changedTouches?.[0]
+      if (!touch) return
+
+      const deltaX = touch.clientX - startX
+      const deltaY = touch.clientY - startY
+
+      // 手勢判點：距離 > 50px 且 水平距離為垂直距離 1.5 倍以上
+      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        const currentIndex = journeys.findIndex(j => j.day === selectedDay)
+        if (deltaX < 0) {
+          // 向左滑動 ➔ 切換至下一天
+          if (currentIndex !== -1 && currentIndex < journeys.length - 1) {
+            const nextDay = journeys[currentIndex + 1].day
+            setSlideAnimation('slide-left')
+            setSelectedDay(nextDay)
+            const tabBtn = document.querySelector(`.date-tab[data-day="${nextDay}"]`)
+            tabBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+          }
+        } else if (deltaX > 0) {
+          // 向右滑動 ➔ 切換至上一天
+          if (currentIndex > 0) {
+            const prevDay = journeys[currentIndex - 1].day
+            setSlideAnimation('slide-right')
+            setSelectedDay(prevDay)
+            const tabBtn = document.querySelector(`.date-tab[data-day="${prevDay}"]`)
+            tabBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+          }
+        }
+      }
+    }
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true })
+    el.addEventListener('touchend', handleTouchEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart)
+      el.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isMobile, selectedDay, journeys])
 
   // --- Dnd-kit sensors 觸控與滑鼠拖曳參數配置 ---
   const sensors = useSensors(
@@ -539,6 +629,55 @@ export default function TripPage({ tripId, onBack }) {
     setRemarkItem(null);
   }
 
+  const handleCopySchedule = async (item) => {
+    setActionLoading('複製行程中...')
+    try {
+      const currentJourney = journeys.find(j => j.day === item.day)
+      const currentSchedules = currentJourney?.schedule || []
+      const maxSortOrder = currentSchedules.reduce((max, s) => Math.max(max, Number(s.sortOrder) || 0), 0)
+
+      const newGroupId = 'g-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
+      const tempId = `t3-d${item.day}-${Date.now()}`
+
+      const newScheduleDto = {
+        id: tempId,
+        tripId,
+        day: item.day,
+        date: item.date,
+        attractionName: item.attractionName || '',
+        startTime: '',
+        endTime: '',
+        remark: item.remark || '',
+        googleMapLink: item.googleMapLink || '',
+        groupId: newGroupId,
+        altOrder: 0,
+        sortOrder: maxSortOrder + 1
+      }
+
+      const res = await apiService.addSchedule(newScheduleDto)
+
+      const createdItem = {
+        ...newScheduleDto,
+        id: res?.id || res?.data?.id || tempId
+      }
+
+      setJourneys(prev => prev.map(j => {
+        if (j.day === item.day) {
+          return {
+            ...j,
+            schedule: [...(j.schedule || []), createdItem]
+          }
+        }
+        return j
+      }))
+    } catch (err) {
+      console.error('複製行程失敗:', err)
+      alert('複製行程失敗，請稍後再試：' + (err.message || err))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleShareLink = () => {
     const readOnlyId = tripInfo?.readOnlyId
     const shareUrl = new URL(window.location.href)
@@ -641,9 +780,6 @@ export default function TripPage({ tripId, onBack }) {
           <h2 className="loading-title">
             正在載入行程，請稍候...
           </h2>
-          <p className="loading-subtitle">
-            等待 API 回應中，請耐心等候。
-          </p>
         </div>
       </div>
     )
@@ -764,9 +900,11 @@ export default function TripPage({ tripId, onBack }) {
                 return (
                   <button
                     key={j.day}
+                    data-day={j.day}
                     className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] ${isActive ? 'active' : ''}`}
-                    onClick={() => {
+                    onClick={(e) => {
                       setSelectedDay(j.day);
+                      e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                       if (!isMobile) {
                         setFormModal(null);
                         setTripInfoModal(null);
@@ -780,9 +918,11 @@ export default function TripPage({ tripId, onBack }) {
               return (
                 <button
                   key={j.day}
+                  data-day={j.day}
                   className={`date-tab shrink-0 w-auto md:w-full min-h-[52px] ${isActive ? 'active' : ''}`}
-                  onClick={() => {
+                  onClick={(e) => {
                     setSelectedDay(j.day);
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                     if (!isMobile) {
                       setFormModal(null);
                       setTripInfoModal(null);
@@ -802,8 +942,8 @@ export default function TripPage({ tripId, onBack }) {
         {/* ─── 中間與右側混合內容區 (Desktop 為並排 layout) ─── */}
         <div className="trip-content-wrapper flex-1 flex flex-col md:flex-row md:min-h-0 md:overflow-hidden">
           {/* 中間：行程卡片垂直列表 */}
-          <main className="main-content flex-1 w-full md:w-1/2 md:overflow-y-auto px-4 md:px-6 py-6 md:border-r border-[var(--glass-border)]">
-            <div className="schedule-list flex flex-col gap-4">
+          <main ref={mainContentRef} className="main-content flex-1 w-full md:w-1/2 md:overflow-y-auto px-4 md:px-6 py-6 md:border-r border-[var(--glass-border)]">
+            <div className={`schedule-list flex flex-col gap-4 ${slideAnimation}`}>
               {selectedDay === 0 ? (
                 <>
                   {/* 去程航班卡片 */}
@@ -1045,6 +1185,7 @@ export default function TripPage({ tripId, onBack }) {
                               else { setFormModal({ mode: 'edit', item: it }); setTripInfoModal(null); }
                             }}
                             onDelete={(it) => setDeleteItem(it)}
+                            onCopy={handleCopySchedule}
                             onAddBackup={handleAddBackup}
                             isReadOnly={isReadOnly}
                           />
@@ -1259,6 +1400,16 @@ export default function TripPage({ tripId, onBack }) {
             }
           }}
         />
+      )}
+
+      {/* ─── 全域快捷 API 操作 Loading 遮罩 ─── */}
+      {actionLoading && (
+        <div className="action-loading-overlay">
+          <div className="action-loading-card">
+            <Loader size={20} className="spin-icon" style={{ display: 'inline' }} />
+            <span>{actionLoading}</span>
+          </div>
+        </div>
       )}
     </div>
   )
