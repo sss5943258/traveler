@@ -203,5 +203,56 @@ export const apiService = {
       method: 'POST',
       payload: uploadDto
     })
+  },
+
+  /**
+   * 取得所有旅行攜帶品項清單
+   */
+  async getPackingItems() {
+    return await sendRequest({
+      actionName: 'getPackingItems',
+      path: API_MODE === 'GAS' ? '' : '/packingitems',
+      method: 'GET'
+    })
+  },
+
+  /**
+   * 新增攜帶品項
+   * @param {Object} itemDto { name, isEssential }
+   */
+  async addPackingItem(itemDto) {
+    return await sendRequest({
+      actionName: 'addPackingItem',
+      path: '/packingitems',
+      method: 'POST',
+      payload: itemDto
+    })
+  },
+
+  /**
+   * 切換品項勾選狀態
+   * @param {string} itemId 
+   * @param {boolean} checked 
+   */
+  async togglePackingItem(itemId, checked) {
+    return await sendRequest({
+      actionName: 'togglePackingItem',
+      path: `/packingitems/${itemId}/toggle`,
+      method: API_MODE === 'GAS' ? 'POST' : 'PATCH',
+      payload: { itemId, checked }
+    })
+  },
+
+  /**
+   * 刪除攜帶品項
+   * @param {string} itemId 
+   */
+  async deletePackingItem(itemId) {
+    return await sendRequest({
+      actionName: 'deletePackingItem',
+      path: `/packingitems/${itemId}`,
+      method: API_MODE === 'GAS' ? 'POST' : 'DELETE',
+      payload: { itemId }
+    })
   }
 }

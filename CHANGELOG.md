@@ -6,9 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **API 服務適配器層 (`apiService.js`)**：採用 Adapter Pattern 與 Strategy Pattern，建立全域統一 API 服務層，完美將前端 UI 元件與後端通訊傳輸細節完全解耦。
+- **旅行攜帶清單（Packing List）API 串接與適配器擴充**：於 `apiService.js` 新增 `getPackingItems`, `addPackingItem`, `togglePackingItem`, `deletePackingItem` 4 個非同步 CRUD 方法，支援 GAS 與 .NET Core API 雙模式。
 
 ### Changed
-- **第一層 Component 統一 DTO 化**：所有 React 元件 (`HomePage`, `TripPage`, `ScheduleFormModal`, `DeleteConfirmModal`, `TripInfoFormModal`, `NewTripModal`) 改以標準 DTO 呼叫 `apiService`。
+- **第一層 Component 統一 DTO 化**：所有 React 元件 (`HomePage`, `TripPage`, `ScheduleFormModal`, `DeleteConfirmModal`, `TripInfoFormModal`, `NewTripModal`, `PackingListPage`) 改以標準 DTO 呼叫 `apiService`。
+- **攜帶清單頁面視覺對齊**：重構 `PackingListPage.jsx` 解耦舊式內聯 `fetch` 呼叫，將自訂 Checkbox 與按鈕視覺全面統一為專案深木褐色調與莫蘭迪質感。
 - **無縫雙後端切換 (`config.js`)**：提供 `API_MODE` (`'GAS'` 或 `'NET_CORE'`) 設定，可在 Google Apps Script 與 .NET Core API 之間一鍵切換，無需調整任何前端畫面邏輯。
 
 ### Fixed

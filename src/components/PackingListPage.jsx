@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X, Save, Star, Loader } from 'lucide-react'
-import { API_URL } from '../config'
-import { cachedFetch } from '../utils/api'
+import { apiService } from '../services/apiService'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import './PackingListPage.css'
 
@@ -51,7 +50,7 @@ function AddItemModal({ onClose, onAdd, isSaving }) {
               />
             </div>
 
-            {/* 必備 checkbox — 用 inline style 直接控制，避免 CSS :has() 問題 */}
+            {/* 必備 checkbox — 統一色彩系統 */}
             <div className="packing-essential-check">
               <label
                 className="packing-checkbox-label"
@@ -64,10 +63,10 @@ function AddItemModal({ onClose, onAdd, isSaving }) {
                     display: 'inline-flex',
                     width: 20,
                     height: 20,
-                    borderRadius: 6,
-                    border: isEssential ? '2px solid #2193b0' : '2px solid rgba(0,0,0,0.2)',
+                    borderRadius: 4,
+                    border: isEssential ? '2px solid var(--primary)' : '2px solid rgba(88,63,36,0.2)',
                     background: isEssential
-                      ? 'linear-gradient(135deg,#6dd5ed,#2193b0)'
+                      ? 'linear-gradient(135deg, var(--primary-dark), var(--primary))'
                       : 'rgba(255,255,255,0.7)',
                     flexShrink: 0,
                     alignItems: 'center',
@@ -131,10 +130,7 @@ export default function PackingListPage({ onBack }) {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_URL}/packingitems`)
-      if (!res.ok) throw new Error('網路請求失敗')
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      const data = await apiService.getPackingItems()
       // 確保 isEssential 和 checked 為 boolean
       const normalized = (Array.isArray(data) ? data : []).map((item) => ({
         ...item,
@@ -155,12 +151,7 @@ export default function PackingListPage({ onBack }) {
   const handleAdd = async ({ name, isEssential }) => {
     setIsSaving(true)
     try {
-      const res = await cachedFetch(`${API_URL}/packingitems`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, isEssential }),
-      })
-      if (!res.ok) throw new Error('新增失敗')
+      await apiService.addPackingItem({ name, isEssential })
       await fetchItems()
       setShowAddModal(false)
     } catch (err) {
@@ -178,12 +169,7 @@ export default function PackingListPage({ onBack }) {
       prev.map((i) => (i.itemId === item.itemId ? { ...i, checked: newChecked } : i))
     )
     try {
-      const res = await cachedFetch(`${API_URL}/packingitems/${item.itemId}/toggle`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checked: newChecked }),
-      })
-      if (!res.ok) throw new Error('更新失敗')
+      await apiService.togglePackingItem(item.itemId, newChecked)
     } catch (err) {
       // rollback
       setItems((prev) =>
@@ -195,10 +181,7 @@ export default function PackingListPage({ onBack }) {
 
   // ── 刪除（交給 DeleteConfirmModal 執行） ──────────────────────
   const handleDeleteConfirm = async () => {
-    const res = await cachedFetch(`${API_URL}/packingitems/${deletingItem.itemId}`, {
-      method: 'DELETE',
-    })
-    if (!res.ok) throw new Error('刪除失敗')
+    await apiService.deletePackingItem(deletingItem.itemId)
   }
 
   const handleDeleteDone = () => {
@@ -262,7 +245,7 @@ export default function PackingListPage({ onBack }) {
                 key={item.itemId}
                 className={`packing-item glass${item.checked ? ' packing-item--checked' : ''}`}
               >
-                {/* 自訂 Checkbox — inline style 直接控制，不靠 :has() */}
+                {/* 自訂 Checkbox — 統一深木褐質感 */}
                 <label
                   className="packing-item-check-label"
                   onClick={() => handleToggle(item)}
@@ -273,10 +256,10 @@ export default function PackingListPage({ onBack }) {
                       display: 'inline-flex',
                       width: 20,
                       height: 20,
-                      borderRadius: 6,
-                      border: item.checked ? '2px solid #2193b0' : '2px solid rgba(0,0,0,0.2)',
+                      borderRadius: 4,
+                      border: item.checked ? '2px solid var(--primary)' : '2px solid rgba(88,63,36,0.2)',
                       background: item.checked
-                        ? 'linear-gradient(135deg,#6dd5ed,#2193b0)'
+                        ? 'linear-gradient(135deg, var(--primary-dark), var(--primary))'
                         : 'rgba(255,255,255,0.7)',
                       flexShrink: 0,
                       alignItems: 'center',
