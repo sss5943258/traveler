@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-09-02
+
+### Added
+- **行程間交通方式（Transit Between Spots）功能**：
+  - 新增景點卡片間互動交通箭頭元件 (`TransportArrow`)，以「Icon + 預估時間 (如 `15m` 或 `1h 20m`) + 箭頭 (`↓`)」手繪視覺樣式呈現於景點與景點之間。
+  - 新增交通方式編輯表單與彈窗 (`TransportFormModal.jsx` 與 `TransportForm`)，支援步行、開車、公車、地鐵、自訂（名稱輸入）、預估花費時間（小時/分鐘）與交通備註說明。
+  - 新增交通資訊清除按鈕，點擊後可隨時將箭頭還原為預設淡色箭頭 `↓`。
+
+### Changed
+- **網頁版 (Desktop) 與手機版 (Mobile) 差異化編輯體驗**：
+  - 網頁版點擊交通箭頭時，直接於右側編輯欄位 (`<aside className="edit-panel">`) 嵌入 `TransportForm`，與行程卡片及航班編輯體驗保持一致。
+  - 手機版點擊交通箭頭時，彈出全螢幕/底端 Dialog 彈窗。
+- **預估花費時間輸入框樣式優化**：
+  - 採用左右兩組數值 Input (小時與分鐘分開)，搭配 HTML5 Datalist Autocomplete 下拉建議選單 (0-24 小時, 1-60 分鐘)。
+  - 數值靠左對齊，採用單一外框完整包裹輸入區、Autocomplete 箭頭 `▼` 與右側灰色固定單位標籤 (`小時` / `分鐘`)，且徹底隱藏內層 Input 的預設邊框與背景，解決瀏覽器箭頭遮蓋單位文字的問題。
+- **後端 Google Apps Script (GAS) `Schedules` 欄位擴充**：
+  - 於 `traveler/backend/SchedulesService.gs` 與 `InitData.gs` 擴充 `transportType`, `transportCustomName`, `transportDurationMinutes`, `transportRemark` 4 個欄位與對應 CRUD 邏輯。
+
 ## [0.6.0] - 2026-09-01
 
 ### Added

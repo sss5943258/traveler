@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText } from 'lucide-react'
+import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText, Footprints, Car, Bus, Train, Navigation } from 'lucide-react'
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { apiService } from '../services/apiService'
 import ScheduleFormModal, { ScheduleForm } from './ScheduleFormModal'
 import TripInfoFormModal, { TripInfoForm } from './TripInfoFormModal'
+import TransportFormModal, { TransportForm } from './TransportFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import './TripPage.css'
 
@@ -39,6 +40,77 @@ const formatDisplayDatetime = (val) => {
   }
   return str.replace('T', ' ').replace(/-/g, '/').slice(0, 16);
 };
+
+// 輔助函式：將總分鐘數轉為手繪圖樣式文字 (如 "15m" 或 "1h 20m")
+const formatTransportDuration = (totalMinutes) => {
+  const mins = Number(totalMinutes) || 0;
+  if (mins <= 0) return '';
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  if (hours > 0 && remainingMins > 0) return `${hours}h ${remainingMins}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${remainingMins}m`;
+};
+
+// 輔助函式：依交通方式取得對應 Icon 與顯示名稱
+const getTransportMeta = (type, customName) => {
+  switch (type) {
+    case 'walk':
+      return { label: '步行', icon: <Footprints size={20} /> };
+    case 'car':
+      return { label: '開車', icon: <Car size={20} /> };
+    case 'bus':
+      return { label: '公車', icon: <Bus size={20} /> };
+    case 'subway':
+      return { label: '地鐵', icon: <Train size={20} /> };
+    case 'custom':
+      return { label: customName || '自訂', icon: <Navigation size={20} /> };
+    default:
+      return null;
+  }
+};
+
+/**
+ * TransportArrow 元件 (景點間的交通箭頭)
+ */
+function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
+  const meta = targetItem ? getTransportMeta(targetItem.transportType, targetItem.transportCustomName) : null;
+  const durationText = targetItem ? formatTransportDuration(targetItem.transportDurationMinutes) : '';
+  const hasTransport = Boolean(meta);
+
+  return (
+    <div
+      className="transport-arrow-container cursor-pointer my-2 flex flex-col items-center justify-center transition-all group"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!isReadOnly && targetItem && onEditTransport) {
+          onEditTransport(targetItem);
+        }
+      }}
+      title={hasTransport ? (targetItem.transportRemark ? `交通備註：${targetItem.transportRemark}` : '點擊編輯交通方式') : '點擊新增交通方式'}
+    >
+      {hasTransport ? (
+        <div className="flex flex-col items-center text-[var(--primary-dark)] hover:scale-105 transition-transform">
+          <div className="flex items-center gap-1 text-gray-700 font-medium text-xs bg-white/70 px-2 py-1 rounded-full border border-amber-200/60 shadow-sm mb-0.5">
+            {meta.icon}
+            {targetItem.transportType === 'custom' && <span className="text-[11px] font-semibold">{meta.label}</span>}
+          </div>
+          {durationText && (
+            <span className="text-[11px] font-bold text-gray-600 mb-0.5 tracking-tight">
+              {durationText}
+            </span>
+          )}
+          <ArrowDown size={18} className="opacity-80 text-[var(--primary-dark)]" />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center opacity-40 hover:opacity-100 text-[var(--primary-dark)] transition-opacity py-1">
+          <span className="text-[10px] font-medium text-gray-500 hidden group-hover:block mb-0.5">新增交通</span>
+          <ArrowDown size={18} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * CardMenu 元件 (卡片操作選單)
@@ -418,6 +490,8 @@ export default function TripPage({ tripId, onBack }) {
   const [remarkItem, setRemarkItem] = useState(null)      // 當前在手機版查看詳情備註的行程
   const [formModal, setFormModal] = useState(null)        // 行程表單狀態：{ mode, item, day, date, groupId, altOrder }
   const [tripInfoModal, setTripInfoModal] = useState(null) // 航班資訊表單狀態：{ type } (outbound/inbound/remark)
+  const [transportModalItem, setTransportModalItem] = useState(null) // 手機版交通方式編輯彈窗
+  const [transportFormItem, setTransportFormItem] = useState(null)   // 網頁版交通方式右側編輯欄位
   const [deleteItem, setDeleteItem] = useState(null)      // 待刪除行程物件
   const [deleteTripInfoType, setDeleteTripInfoType] = useState(null) // 待刪除航班/備註類別
 
@@ -626,6 +700,7 @@ export default function TripPage({ tripId, onBack }) {
 
     setFormModal(targetState);
     setTripInfoModal(null);
+    setTransportFormItem(null);
     setRemarkItem(null);
   }
 
@@ -839,6 +914,7 @@ export default function TripPage({ tripId, onBack }) {
         date: item.date
       });
       setTripInfoModal(null);
+      setTransportFormItem(null);
       setRemarkItem(null);
     }
   }
@@ -908,6 +984,7 @@ export default function TripPage({ tripId, onBack }) {
                       if (!isMobile) {
                         setFormModal(null);
                         setTripInfoModal(null);
+                        setTransportFormItem(null);
                       }
                     }}
                   >
@@ -926,6 +1003,7 @@ export default function TripPage({ tripId, onBack }) {
                     if (!isMobile) {
                       setFormModal(null);
                       setTripInfoModal(null);
+                      setTransportFormItem(null);
                     }
                   }}
                 >
@@ -1146,57 +1224,83 @@ export default function TripPage({ tripId, onBack }) {
               ) : (
                 // ─── 當選取特定 Day 時，渲染行程排序清單 ───
                 isReadOnly ? (
-                  scheduleGroups.map((group, idx) => (
-                    <div key={group.id} className="sortable-group-wrapper w-full flex flex-col">
-                      <div className="horizontal-scroll w-full">
-                        {group.items.map((item, altIdx) => (
-                          <div key={item.id} className="card-wrapper w-full">
-                            <Card
-                              item={item}
-                              isActive={activeItemId === item.id}
-                              onClick={() => handleCardSelect(item)}
-                              onMap={(e) => handleMap(e, item)}
-                              isReadOnly={true}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {/* 卡片之間的連接小箭頭 */}
-                      {idx < scheduleGroups.length - 1 && (
-                        <div className="my-2 text-[var(--primary-dark)] opacity-40" style={{ display: 'flex', justifyContent: 'center' }}>
-                          <ArrowDown size={18} />
+                  scheduleGroups.map((group, idx) => {
+                    const nextTargetItem = scheduleGroups[idx + 1]?.items?.find(i => Number(i.altOrder) === 0) || scheduleGroups[idx + 1]?.items?.[0];
+                    return (
+                      <div key={group.id} className="sortable-group-wrapper w-full flex flex-col">
+                        <div className="horizontal-scroll w-full">
+                          {group.items.map((item, altIdx) => (
+                            <div key={item.id} className="card-wrapper w-full">
+                              <Card
+                                item={item}
+                                isActive={activeItemId === item.id}
+                                onClick={() => handleCardSelect(item)}
+                                onMap={(e) => handleMap(e, item)}
+                                isReadOnly={true}
+                              />
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  ))
+                        {/* 卡片之間的連接交通箭頭 */}
+                        {idx < scheduleGroups.length - 1 && (
+                          <TransportArrow
+                            targetItem={nextTargetItem}
+                            onEditTransport={(it) => {
+                              if (isMobile) {
+                                setTransportModalItem(it);
+                              } else {
+                                setTransportFormItem(it);
+                                setFormModal(null);
+                                setTripInfoModal(null);
+                              }
+                            }}
+                            isReadOnly={true}
+                          />
+                        )}
+                      </div>
+                    )
+                  })
                 ) : (
                   <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
                     <SortableContext items={scheduleGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-                      {scheduleGroups.map((group, idx) => (
-                        <div key={group.id} className="sortable-group-wrapper w-full flex flex-col">
-                          <SortableGroup
-                            id={group.id}
-                            groupItems={group.items}
-                            activeItemId={activeItemId}
-                            onClick={handleCardSelect}
-                            onMap={handleMap}
-                            onEdit={(it) => {
-                              if (isMobile) setFormModal({ mode: 'edit', item: it });
-                              else { setFormModal({ mode: 'edit', item: it }); setTripInfoModal(null); }
-                            }}
-                            onDelete={(it) => setDeleteItem(it)}
-                            onCopy={handleCopySchedule}
-                            onAddBackup={handleAddBackup}
-                            isReadOnly={isReadOnly}
-                          />
-                          {/* 卡片之間的連接小箭頭 */}
-                          {idx < scheduleGroups.length - 1 && (
-                            <div className="my-2 text-[var(--primary-dark)] opacity-40" style={{ display: 'flex', justifyContent: 'center' }}>
-                              <ArrowDown size={18} />
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                      {scheduleGroups.map((group, idx) => {
+                        const nextTargetItem = scheduleGroups[idx + 1]?.items?.find(i => Number(i.altOrder) === 0) || scheduleGroups[idx + 1]?.items?.[0];
+                        return (
+                          <div key={group.id} className="sortable-group-wrapper w-full flex flex-col">
+                            <SortableGroup
+                              id={group.id}
+                              groupItems={group.items}
+                              activeItemId={activeItemId}
+                              onClick={handleCardSelect}
+                              onMap={handleMap}
+                              onEdit={(it) => {
+                                if (isMobile) setFormModal({ mode: 'edit', item: it });
+                                else { setFormModal({ mode: 'edit', item: it }); setTripInfoModal(null); setTransportFormItem(null); }
+                              }}
+                              onDelete={(it) => setDeleteItem(it)}
+                              onCopy={handleCopySchedule}
+                              onAddBackup={handleAddBackup}
+                              isReadOnly={isReadOnly}
+                            />
+                            {/* 卡片之間的連接交通箭頭 */}
+                            {idx < scheduleGroups.length - 1 && (
+                              <TransportArrow
+                                targetItem={nextTargetItem}
+                                onEditTransport={(it) => {
+                                  if (isMobile) {
+                                    setTransportModalItem(it);
+                                  } else {
+                                    setTransportFormItem(it);
+                                    setFormModal(null);
+                                    setTripInfoModal(null);
+                                  }
+                                }}
+                                isReadOnly={isReadOnly}
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
                     </SortableContext>
                   </DndContext>
                 )
@@ -1268,6 +1372,22 @@ export default function TripPage({ tripId, onBack }) {
                     setTripInfoModal(null);
                   }}
                   onCancel={() => setTripInfoModal(null)}
+                />
+              ) : transportFormItem ? (
+                // 渲染交通方式表單 (網頁版右側欄位)
+                <TransportForm
+                  item={transportFormItem}
+                  onSaved={(savedItem) => {
+                    setJourneys(prev => prev.map(j => {
+                      if (j.day === savedItem.day) {
+                        const newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem } : si);
+                        return { ...j, schedule: newSchedule };
+                      }
+                      return j;
+                    }));
+                    setTransportFormItem(null);
+                  }}
+                  onCancel={() => setTransportFormItem(null)}
                 />
               ) : (
                 // 預設空區塊狀態 (顯示 Placeholder，使用 margin: auto 置中並加上精緻金屬色虛線框)
@@ -1398,6 +1518,24 @@ export default function TripPage({ tripId, onBack }) {
             if (!isMobile) {
               setTripInfoModal(null);
             }
+          }}
+        />
+      )}
+
+      {/* 交通方式編輯彈窗 */}
+      {transportModalItem && (
+        <TransportFormModal
+          item={transportModalItem}
+          onClose={() => setTransportModalItem(null)}
+          onSaved={(savedItem) => {
+            setJourneys(prev => prev.map(j => {
+              if (j.day === savedItem.day) {
+                const newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem } : si);
+                return { ...j, schedule: newSchedule };
+              }
+              return j;
+            }));
+            setTransportModalItem(null);
           }}
         />
       )}
