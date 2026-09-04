@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PWA Icon Preview</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #faf8f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, sans-serif;
+    }
+    .icon-card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    svg {
+      width: 320px;
+      height: 320px;
+      border-radius: 64px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    }
+    h2 {
+      margin: 0;
+      color: #583f24;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon-card">
+    <h2>短版現代飛機 + 雙眼火柴人 PWA 圖示預覽</h2>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+      <rect width="512" height="512" fill="#ffffff" rx="100"/>
+      
+      <!-- Angled 12deg upwards -->
+      <g transform="translate(256, 265) rotate(-12) translate(-256, -265)">
+        
+        <!-- Short Modern Airplane Outline -->
+        <path d="
+          M 160 270 
+          C 180 230, 310 225, 360 250 
+          C 395 268, 395 282, 360 295 
+          C 300 315, 180 305, 160 270 Z
+        " fill="#ffffff" stroke="#000000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        
+        <!-- Tail Fin -->
+        <path d="
+          M 180 248 
+          L 155 190 
+          L 205 212 
+          L 225 240
+        " fill="#ffffff" stroke="#000000" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Main Wing -->
+        <path d="
+          M 260 280 
+          L 210 370 
+          C 225 375, 245 370, 255 360 
+          L 310 282
+        " fill="#ffffff" stroke="#000000" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Far Wing -->
+        <path d="
+          M 280 232 
+          L 315 175 
+          L 335 180 
+          L 320 235
+        " fill="#ffffff" stroke="#000000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Stickman 1 (Front - Sitting & Riding) -->
+        <circle cx="310" cy="180" r="22" fill="#ffffff" stroke="#000000" stroke-width="8"/>
+        <circle cx="304" cy="178" r="3.5" fill="#000000"/>
+        <circle cx="318" cy="178" r="3.5" fill="#000000"/>
+        <path d="M 310 202 L 305 240" stroke="#000000" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 310 215 L 330 238" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 310 215 L 290 235" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 305 240 L 320 252" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 305 240 L 292 250" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+
+        <!-- Stickman 2 (Back - Waving happily) -->
+        <circle cx="235" cy="160" r="22" fill="#ffffff" stroke="#000000" stroke-width="8"/>
+        <circle cx="229" cy="158" r="3.5" fill="#000000"/>
+        <circle cx="243" cy="158" r="3.5" fill="#000000"/>
+        <path d="M 235 182 L 230 225" stroke="#000000" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 235 195 L 205 165" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 235 195 L 250 220" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 230 225 L 245 238" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+        <path d="M 230 225 L 218 235" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
+
+      </g>
+    </svg>
+  </div>
+</body>
+</html>
