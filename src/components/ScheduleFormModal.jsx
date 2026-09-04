@@ -4,6 +4,7 @@ import { X, Save, Loader } from 'lucide-react'
 import { TimePicker } from 'antd'
 import dayjs from 'dayjs'
 import { apiService } from '../services/apiService'
+import { validateScheduleForm, hasErrors } from '../utils/validator'
 import './Modals.css'
 
 /**
@@ -33,8 +34,11 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
   // isSaving 狀態：記錄目前是否正在與後端 API 傳輸儲存中，用於顯示轉圈圈與停用按鈕
   const [isSaving, setIsSaving] = useState(false)
   
-  // error 狀態：儲存欄位驗證失敗或後端 API 傳回的錯誤訊息
-  const [error, setError] = useState(null)
+  // errors 狀態：儲存各欄位獨立驗證失敗訊息 (鍵值對)
+  const [errors, setErrors] = useState({})
+
+  // error 狀態：儲存後端 API 傳回的通用全域錯誤訊息
+  const [apiError, setApiError] = useState(null)
 
   // 監聽傳入的 item 或模式變化，當在「編輯」模式且資料存在時，將原行程資料填入 form 狀態中 (初始化)
   useEffect(() => {
@@ -54,10 +58,14 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
 
   /**
    * handleChange 欄位變更處理函式
-   * 當 input 或 textarea 內容改變時觸發，利用名稱（name）動態更新 form 對應欄位的 state
+   * 當 input 或 textarea 內容改變時觸發，並即時清除該欄位的紅字錯誤標示
    */
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }))
+    }
   }
 
   /**
@@ -66,48 +74,59 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
    */
   const handleSubmit = async (e) => {
     e.preventDefault()
-    // 檢查必填的行程名稱是否為空值
-    if (!form.attractionName.trim()) {
-      setError('名稱為必填欄位')
+    // 呼叫全域驗證服務進行欄位防呆檢核
+    const formErrors = validateScheduleForm(form)
+    if (hasErrors(formErrors)) {
+      setErrors(formErrors)
       return
     }
+    setErrors({})
     setIsSaving(true)
-    setError(null)
+    setApiError(null)
     try {
       const targetDate = isEdit || mode === 'addBackup' ? item.date : date;
       const targetDay = isEdit || mode === 'addBackup' ? item.day : day;
 
-      const isPlaceholder = isEdit && item?.isDefaultPlaceholder;
+      let savedItem = null
+      const isPlaceholder = isEdit && item?.isDefaultPlaceholder
 
       // 若是編輯「非佔位」的既有行程，呼叫 apiService.updateSchedule
       if (isEdit && !isPlaceholder) {
         await apiService.updateSchedule(item.id, form)
-      } else {
-        // 新增行程或寫入預留佔位卡片，呼叫 apiService.addSchedule
-        await apiService.addSchedule({
-          tripId,
-          id: isEdit ? item.id : undefined,
+        savedItem = {
+          ...form,
+          id: item.id,
           day: targetDay,
           date: targetDate,
-          groupId: isEdit ? item.groupId : (groupId || undefined),
+          groupId: item.groupId,
+          altOrder: item.altOrder,
+          sortOrder: item.sortOrder
+        }
+      } else {
+        // 新增行程或寫入預留佔位卡片，呼叫 apiService.addSchedule
+        const tempId = isEdit ? item.id : `t3-d${targetDay}-${Date.now()}`
+        const scheduleDto = {
+          tripId,
+          id: tempId,
+          day: targetDay,
+          date: targetDate,
+          groupId: isEdit ? item.groupId : (groupId || tempId),
           altOrder: isEdit ? item.altOrder : (altOrder || 0),
           ...form
-        })
+        }
+        const res = await apiService.addSchedule(scheduleDto)
+        const finalId = res?.id || res?.data?.id || tempId
+        savedItem = {
+          ...scheduleDto,
+          id: finalId,
+          groupId: isEdit ? item.groupId : (groupId || finalId),
+          sortOrder: isEdit ? item.sortOrder : 999
+        }
       }
 
-      // 組裝儲存後的行程物件，並回傳給父元件以更新前端 UI 畫面
-      const newItem = {
-        ...form,
-        id: isEdit ? item.id : `t3-d${targetDay}-${Date.now()}`,
-        day: targetDay,
-        date: targetDate,
-        groupId: isEdit ? item.groupId : (groupId || undefined),
-        altOrder: isEdit ? item.altOrder : (altOrder || 0),
-        sortOrder: isEdit ? item.sortOrder : 999
-      }
-      onSaved(newItem)
+      onSaved(savedItem)
     } catch (err) {
-      setError(err.message)
+      setApiError(err.message)
     } finally {
       setIsSaving(false)
     }
@@ -134,7 +153,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
 
       {/* 表單內容區塊：軟性填滿剩餘高度 */}
       <div className="form-modal-body flex-fill-body">
-        <form className="schedule-form" id="scheduleForm" onSubmit={handleSubmit}>
+        <form className="schedule-form" id="scheduleForm" onSubmit={handleSubmit} noValidate>
           {/* 1. 行程名稱 (1 行) */}
           <div className="form-group">
             <label>行程名稱 <span className="required">*</span></label>
@@ -143,31 +162,33 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
               value={form.attractionName}
               onChange={handleChange}
               placeholder="例：清水寺 (景點)"
-              required
+              className={errors.attractionName ? 'input-has-error' : ''}
             />
+            {errors.attractionName && <span className="field-error-text">{errors.attractionName}</span>}
           </div>
 
           {/* 2. 時間 (1 行) */}
           <div className="form-group">
-            <label>時間</label>
+            <label>時間 <span className="required">*</span></label>
             <TimePicker.RangePicker
               format="HH:mm"
               minuteStep={5}
-              placeholder={['開始時間', '結束時間']}
-              allowEmpty={[true, true]}
+              placeholder={['開始時間 (必填)', '結束時間 (選填)']}
+              allowEmpty={[false, true]}
               value={[
                 form.startTime ? dayjs(form.startTime, 'HH:mm') : null,
                 form.endTime ? dayjs(form.endTime, 'HH:mm') : null
               ]}
               onChange={(dates, dateStrings) => {
-                setForm(prev => ({
-                  ...prev,
-                  startTime: dateStrings ? dateStrings[0] : '',
-                  endTime: dateStrings ? dateStrings[1] : ''
-                }))
+                const startTime = dateStrings ? dateStrings[0] : ''
+                const endTime = dateStrings ? dateStrings[1] : ''
+                setForm((prev) => ({ ...prev, startTime, endTime }))
+                setErrors((prev) => ({ ...prev, startTime: '', endTime: '' }))
               }}
-              className="time-picker-custom"
+              className={`time-picker-custom ${errors.startTime || errors.endTime ? 'input-has-error' : ''}`}
             />
+            {errors.startTime && <span className="field-error-text">{errors.startTime}</span>}
+            {errors.endTime && <span className="field-error-text">{errors.endTime}</span>}
           </div>
 
           {/* 3. 備註 (自動垂直延伸填滿剩餘高度空間，放置於 Google Map 連結上方) */}
@@ -192,7 +213,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
             />
           </div>
 
-          {error && <p className="form-error">{error}</p>}
+          {apiError && <p className="form-error">{apiError}</p>}
         </form>
       </div>
 

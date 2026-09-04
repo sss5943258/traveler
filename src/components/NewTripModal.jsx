@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Save, Loader, Plane } from 'lucide-react'
 import { apiService } from '../services/apiService'
+import { validateTripForm, hasErrors } from '../utils/validator'
 import './Modals.css'
 
 export default function NewTripModal({ onClose, onCreated }) {
@@ -11,25 +12,32 @@ export default function NewTripModal({ onClose, onCreated }) {
     endDate: '',
   })
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [errors, setErrors] = useState({})
+  const [apiError, setApiError] = useState(null)
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }))
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.name.trim()) {
-      setError('行程名稱為必填欄位')
+    const formErrors = validateTripForm(form)
+    if (hasErrors(formErrors)) {
+      setErrors(formErrors)
       return
     }
+    setErrors({})
     setIsSaving(true)
-    setError(null)
+    setApiError(null)
     try {
       const data = await apiService.createTrip(form)
       onCreated(data)
     } catch (err) {
-      setError(err.message)
+      setApiError(err.message)
     } finally {
       setIsSaving(false)
     }
@@ -51,7 +59,7 @@ export default function NewTripModal({ onClose, onCreated }) {
 
         {/* Body */}
         <div className="form-modal-body">
-          <form className="schedule-form" id="newTripForm" onSubmit={handleSubmit}>
+          <form className="schedule-form" id="newTripForm" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label>
                 行程名稱 <span className="required">*</span>
@@ -61,8 +69,9 @@ export default function NewTripModal({ onClose, onCreated }) {
                 value={form.name}
                 onChange={handleChange}
                 placeholder="例：2025 日本關西之旅"
-                required
+                className={errors.name ? 'input-has-error' : ''}
               />
+              {errors.name && <span className="field-error-text">{errors.name}</span>}
             </div>
 
             <div className="form-row">
@@ -73,7 +82,9 @@ export default function NewTripModal({ onClose, onCreated }) {
                   name="startDate"
                   value={form.startDate}
                   onChange={handleChange}
+                  className={errors.startDate ? 'input-has-error' : ''}
                 />
+                {errors.startDate && <span className="field-error-text">{errors.startDate}</span>}
               </div>
               <div className="form-group">
                 <label>回程日期</label>
@@ -82,11 +93,13 @@ export default function NewTripModal({ onClose, onCreated }) {
                   name="endDate"
                   value={form.endDate}
                   onChange={handleChange}
+                  className={errors.endDate ? 'input-has-error' : ''}
                 />
+                {errors.endDate && <span className="field-error-text">{errors.endDate}</span>}
               </div>
             </div>
 
-            {error && <p className="form-error">{error}</p>}
+            {apiError && <p className="form-error">{apiError}</p>}
           </form>
         </div>
 

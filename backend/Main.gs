@@ -33,12 +33,13 @@ function isValidEditTripId(tripId) {
 
 // 以 scheduleId 反查所屬 tripId，再驗證是否為可編輯 ID
 function isValidEditByScheduleId(scheduleId) {
-  if (!scheduleId) return false;
+  if (!scheduleId) return { valid: false, message: '缺少行程 ID' };
   const sheet = getMySpreadsheet().getSheetByName(SHEET_SCHEDULES);
   const data = parseSheetData(sheet.getDataRange().getValues());
   const item = data.find(s => String(s.id) === String(scheduleId));
-  if (!item) return false;
-  return isValidEditTripId(item.tripId);
+  if (!item) return { valid: false, message: `找不到指定的行程項目 (${scheduleId})` };
+  if (!isValidEditTripId(item.tripId)) return { valid: false, message: '無編輯權限' };
+  return { valid: true };
 }
 
 // ============================================
@@ -72,12 +73,16 @@ function doPost(e) {
     case 'addSchedule':
       if (!isValidEditTripId(payload.tripId)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
       return createJsonResponse(addSchedule(payload));
-    case 'updateSchedule':
-      if (!isValidEditByScheduleId(payload.id)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
+    case 'updateSchedule': {
+      const check = isValidEditByScheduleId(payload.id);
+      if (!check.valid) return createJsonResponse({ status: 'error', message: check.message });
       return createJsonResponse(updateSchedule(payload));
-    case 'deleteSchedule':
-      if (!isValidEditByScheduleId(payload.id)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
+    }
+    case 'deleteSchedule': {
+      const check = isValidEditByScheduleId(payload.id);
+      if (!check.valid) return createJsonResponse({ status: 'error', message: check.message });
       return createJsonResponse(deleteSchedule(payload));
+    }
     case 'updateScheduleOrder':
       if (!isValidEditTripId(payload.tripId)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
       return createJsonResponse(updateScheduleOrder(payload));

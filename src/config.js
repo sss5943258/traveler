@@ -7,7 +7,7 @@
 export const API_MODE = 'GAS'; // 可切換為 'NET_CORE'
 
 export const API_URL_GAS =
-  'https://script.google.com/macros/s/AKfycbwdruqB_0TDoAD_V4GN4a8r1Np9CW_5TPgfCN98Crm1PFxD_-N8VCNUj2xm8_V167qXKA/exec';
+  'https://script.google.com/macros/s/AKfycbwW6WrcSN0nlxwBLQoSlcMuaHb3m2Kc9wqZu-hNtC3kITWr0O_xygvWj2OAUjf_g9cNmw/exec';
 
 export const API_URL_NET_CORE = 'http://localhost:5005/api';
 

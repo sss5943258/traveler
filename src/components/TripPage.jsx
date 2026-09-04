@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText, Footprints, Car, Bus, Train, Navigation } from 'lucide-react'
+import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText, Footprints, Car, Bus, Train, Navigation, ArrowRightLeft } from 'lucide-react'
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -9,6 +9,7 @@ import ScheduleFormModal, { ScheduleForm } from './ScheduleFormModal'
 import TripInfoFormModal, { TripInfoForm } from './TripInfoFormModal'
 import TransportFormModal, { TransportForm } from './TransportFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import MoveDayModal from './MoveDayModal'
 import './TripPage.css'
 
 // 輔助函式：簡化過長文字
@@ -117,7 +118,7 @@ function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
  * 當點擊卡片右上角的「...」時彈出的操作選單，提供「新增備案」、「編輯」、「刪除」選項
  * 採用 React Portal 機制，防止下拉選單被父層 CSS overflow: hidden 遮擋
  */
-function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, showDelete, showAddBackup }) {
+function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, showDelete, showAddBackup }) {
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef(null)
@@ -173,6 +174,11 @@ function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, showDelete, sho
           {onCopy && (
             <button className="menu-item" onClick={() => { setOpen(false); onCopy(item) }}>
               <Copy size={14} /> 複製
+            </button>
+          )}
+          {onMoveDay && (
+            <button className="menu-item" onClick={() => { setOpen(false); onMoveDay(item) }}>
+              <ArrowRightLeft size={14} /> 移動至其他天
             </button>
           )}
           {actualShowDelete && (
@@ -246,7 +252,7 @@ function ShareMenu({ onShareLink, onShareText, onShareCSV }) {
  * Card 元件 (單個行程卡片)
  * 渲染行程名稱、起訖時間、備註圖示，並處理點選卡片觸發的 callback
  */
-function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isReadOnly, isActive }) {
+function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, isReadOnly, isActive }) {
   const hasTime = Boolean((item.startTime && item.startTime.trim() !== '') || (item.endTime && item.endTime.trim() !== ''))
 
   return (
@@ -270,7 +276,7 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isR
           >
             <MapPin size={18} />
           </button>
-          {!isReadOnly && <CardMenu item={item} onEdit={onEdit} onDelete={onDelete} onCopy={onCopy} onAddBackup={onAddBackup} />}
+          {!isReadOnly && <CardMenu item={item} onEdit={onEdit} onDelete={onDelete} onCopy={onCopy} onAddBackup={onAddBackup} onMoveDay={onMoveDay} />}
         </div>
       </div>
       <h3 className="attraction-name">{item.attractionName}</h3>
@@ -286,7 +292,7 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isR
  * SortableGroup 元件
  * 用於排序列表中的 Dnd-Kit 排序群組包裹元件，處理橫向彈性備案滑動與拖曳排程
  */
-function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, isReadOnly, activeItemId }) {
+function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, isReadOnly, activeItemId }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const containerRef = useRef(null)
   const scrollRef = useRef(null)
@@ -449,6 +455,7 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCop
               onDelete={() => onDelete(item)}
               onCopy={() => onCopy && onCopy(item)}
               onAddBackup={() => onAddBackup(item)}
+              onMoveDay={() => onMoveDay && onMoveDay(item)}
               isReadOnly={isReadOnly}
             />
           </div>
@@ -494,6 +501,7 @@ export default function TripPage({ tripId, onBack }) {
   const [transportFormItem, setTransportFormItem] = useState(null)   // 網頁版交通方式右側編輯欄位
   const [deleteItem, setDeleteItem] = useState(null)      // 待刪除行程物件
   const [deleteTripInfoType, setDeleteTripInfoType] = useState(null) // 待刪除航班/備註類別
+  const [moveModalItem, setMoveModalItem] = useState(null) // 待跨天移動的行程物件
 
   // --- 手機與桌面響應式偵測 ---
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -748,6 +756,82 @@ export default function TripPage({ tripId, onBack }) {
     } catch (err) {
       console.error('複製行程失敗:', err)
       alert('複製行程失敗，請稍後再試：' + (err.message || err))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  /**
+   * handleMoveGroupToDay 跨天數移動行程群組處理函式
+   * 將傳入的行程（及其附屬彈性備案）一併移動至指定目標天數 (targetDay) 的末端
+   */
+  const handleMoveGroupToDay = async (targetDay, targetDate) => {
+    if (!moveModalItem) return
+    const sourceItem = moveModalItem
+    setMoveModalItem(null)
+
+    setActionLoading('移動行程中...')
+    try {
+      const sourceDay = sourceItem.day
+      const gid = sourceItem.groupId || sourceItem.id
+
+      // 1. 找出原天數中同 groupId 的所有卡片 (主行程 + 所有備案)
+      const sourceJourney = journeys.find(j => j.day === sourceDay)
+      const groupItemsToMove = (sourceJourney?.schedule || []).filter(
+        i => (i.groupId || i.id) === gid
+      )
+
+      if (groupItemsToMove.length === 0) return
+
+      // 2. 取得目標天數目前行程清單，計算目標天數最高 sortOrder
+      const targetJourney = journeys.find(j => j.day === targetDay)
+      const targetSchedule = targetJourney?.schedule || []
+      const maxSortOrder = targetSchedule.reduce(
+        (max, s) => Math.max(max, Number(s.sortOrder) || 0),
+        0
+      )
+      const newSortOrder = targetSchedule.length > 0 ? maxSortOrder + 1 : 0
+
+      // 3. 準備要更新的資料（同 groupId 的所有卡片都更新 day, date, sortOrder）
+      const updatedGroupItems = groupItemsToMove.map(item => ({
+        ...item,
+        day: targetDay,
+        date: targetDate,
+        sortOrder: newSortOrder
+      }))
+
+      // 4. 呼叫 API 更新後端
+      await Promise.all(
+        updatedGroupItems.map(item =>
+          apiService.updateSchedule(item.id, {
+            day: targetDay,
+            date: targetDate,
+            sortOrder: newSortOrder
+          })
+        )
+      )
+
+      // 5. 更新前端 journeys state：自原天數移除，加到目標天數末端
+      setJourneys(prev =>
+        prev.map(j => {
+          if (j.day === sourceDay) {
+            return {
+              ...j,
+              schedule: (j.schedule || []).filter(i => (i.groupId || i.id) !== gid)
+            }
+          }
+          if (j.day === targetDay) {
+            return {
+              ...j,
+              schedule: [...(j.schedule || []), ...updatedGroupItems]
+            }
+          }
+          return j
+        })
+      )
+    } catch (err) {
+      console.error('移動行程失敗:', err)
+      alert('移動行程失敗，請稍後再試：' + (err.message || err))
     } finally {
       setActionLoading(null)
     }
@@ -1280,6 +1364,7 @@ export default function TripPage({ tripId, onBack }) {
                               onDelete={(it) => setDeleteItem(it)}
                               onCopy={handleCopySchedule}
                               onAddBackup={handleAddBackup}
+                              onMoveDay={(it) => setMoveModalItem(it)}
                               isReadOnly={isReadOnly}
                             />
                             {/* 卡片之間的連接交通箭頭 */}
@@ -1537,6 +1622,17 @@ export default function TripPage({ tripId, onBack }) {
             }));
             setTransportModalItem(null);
           }}
+        />
+      )}
+
+      {/* 跨天數移動行程彈窗 */}
+      {moveModalItem && (
+        <MoveDayModal
+          item={moveModalItem}
+          currentDay={moveModalItem.day}
+          journeys={journeys}
+          onSelectDay={handleMoveGroupToDay}
+          onClose={() => setMoveModalItem(null)}
         />
       )}
 

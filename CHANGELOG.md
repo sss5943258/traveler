@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-09-04
+
+### Added
+- **跨天數移動行程 (Move Schedule Across Days) 功能**：
+  - **行程卡片操作選單選單項目**：於行程卡片右上方 `CardMenu` 新增「移動至其他天」選項 (搭配 `ArrowRightLeft` 雙向導覽圖示)。
+  - **天數選擇彈窗 (`MoveDayModal.jsx`)**：新建天數選擇 Portal 彈窗，清晰列出 `Day 1` ~ `Day N` 與對應日期，自動過濾 `Day 0 (旅程資訊)`，並將「當前天數」進行狀態標示與點選停用防呆。
+  - **彈性備案整組連帶搬移與尾端排程**：跨天移動時會將同屬一個 `groupId` 的主行程與附屬彈性備案一併移動至目標天數，並自動接續於該天現有行程清單的最末端 (`sortOrder = maxSortOrder + 1`)。
+- **通用表單驗證服務模組 (`src/utils/validator.js`)**：
+  - 新建全域驗證服務，包含 `isRequired` (非空判斷)、`isDateOrderValid` (時間與日期順序檢核) 與 `isValidUrl` (網址檢核) 等原子驗證函式。
+  - 提供 `validateScheduleForm` 與 `validateTripForm` Schema 驗證器，將表單防呆邏輯與 Component UI 完全解耦。
+- **欄位下方獨立錯誤訊息與外框高亮 (Field-Level Error Messages & Red Borders)**：
+  - **欄位獨立紅字與紅框**：重構表單驗證呈現，將錯誤提示精確掛載於每個受影響的 Input / TimePicker 欄位正下方 (`.field-error-text`)，並套用顯眼的紅色外框高亮 (`.input-has-error`)。
+  - **即時響應清除機制**：使用者開始在該欄位打字或選擇時間時 (`onChange`)，系統會立即清空該欄位的紅字提示與紅色外框。
+  - **原生氣泡關閉**：於表單加上 `noValidate` 並移除 native `required` 屬性，徹底防止 HTML5 瀏覽器原生氣泡遮蓋自訂視覺 UI。
+
+### Changed
+- **前後端行程 ID 自動同步與刪除權限修復**：
+  - 重構 `ScheduleFormModal.jsx` 新增行程後的回傳處理，確保前端 React State 立即同步 GAS 後端產生的正式卡片 ID，避免未重新整理頁面即進行刪除/編輯時發生前後端 ID 不一致。
+  - 優化 `backend/Main.gs` 之 `isValidEditByScheduleId` 反查邏輯，若搜尋不到特定行程 ID 則回傳精確錯誤訊息（如 `找不到指定的行程項目`），解決過去誤報「無編輯權限」的問題。
+- **首頁飛機圖案標誌置中修復 (Homepage Logo Alignment)**：
+  - 修正首頁 `home-header` 的飛機 SVG 圖示因受 Tailwind CSS 預設重置 (`display: block`) 影響而偏左的問題。將 `.home-header` 改為 Flex Column 容器並結合 `align-items: center` 與 `margin: 0 auto`，確保飛機標誌於首頁頂部完美水平置中。
+- **後端 Google Apps Script (GAS) `updateSchedule` 寫入補全**：
+  - 於 `backend/SchedulesService.gs` 的 `updateSchedule` 寫入邏輯中補全對 `day` (天數)、`date` (日期) 與 `sortOrder` (排序) 欄位變更的寫入支援。
+
 ## [0.7.0] - 2026-09-02
 
 ### Added

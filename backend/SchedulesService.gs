@@ -53,6 +53,9 @@ function updateSchedule(payload) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][3]) === String(payload.id)) {
       const rowIndex = i + 1;
+      if (payload.day !== undefined) sheet.getRange(rowIndex, colMap['day'] || 2).setValue(Number(payload.day));
+      if (payload.date !== undefined) sheet.getRange(rowIndex, colMap['date'] || 3).setValue(payload.date);
+      if (payload.sortOrder !== undefined) sheet.getRange(rowIndex, colMap['sortOrder'] || 7).setValue(Number(payload.sortOrder));
       if (payload.startTime !== undefined) sheet.getRange(rowIndex, colMap['startTime'] || 8).setValue(payload.startTime);
       if (payload.endTime !== undefined) sheet.getRange(rowIndex, colMap['endTime'] || 9).setValue(payload.endTime);
       if (payload.attractionName !== undefined) sheet.getRange(rowIndex, colMap['attractionName'] || 10).setValue(payload.attractionName);
