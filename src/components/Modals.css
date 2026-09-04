@@ -533,4 +533,39 @@
 .input-has-error input {
   border-color: #e53e3e !important;
   box-shadow: 0 0 0 2px rgba(229, 62, 62, 0.1) !important;
-}
+}
+
+/* ─── Conflict Modal Styles ─────────────────────────────────────────── */
+.conflict-modal {
+  max-width: 440px;
+}
+
+.conflict-modal-body {
+  padding: 1.2rem 0;
+}
+
+.conflict-message {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  line-height: 1.6;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 4px solid #f59e0b;
+  padding: 0.9rem 1rem;
+  border-radius: 4px;
+}
+
+.conflict-message.severe {
+  background: rgba(239, 68, 68, 0.08);
+  border-left-color: #ef4444;
+}
+
+.conflict-message strong {
+  color: var(--primary-dark);
+}
+
+.conflict-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}

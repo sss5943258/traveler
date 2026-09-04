@@ -10,6 +10,7 @@ import TripInfoFormModal, { TripInfoForm } from './TripInfoFormModal'
 import TransportFormModal, { TransportForm } from './TransportFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import MoveDayModal from './MoveDayModal'
+import { timeToMinutes } from '../utils/timeSortUtils'
 import './TripPage.css'
 
 // 輔助函式：簡化過長文字
@@ -973,7 +974,24 @@ export default function TripPage({ tripId, onBack }) {
     const sortedGroupIds = Array.from(groupMap.keys()).sort((gidA, gidB) => {
       const pA = groupMap.get(gidA).find(i => Number(i.altOrder) === 0) || groupMap.get(gidA)[0];
       const pB = groupMap.get(gidB).find(i => Number(i.altOrder) === 0) || groupMap.get(gidB)[0];
-      return (pA.sortOrder ?? 999) - (pB.sortOrder ?? 999);
+      
+      const orderA = pA.sortOrder !== undefined && pA.sortOrder !== "" ? Number(pA.sortOrder) : 999;
+      const orderB = pB.sortOrder !== undefined && pB.sortOrder !== "" ? Number(pB.sortOrder) : 999;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      const aStart = timeToMinutes(pA.startTime);
+      const bStart = timeToMinutes(pB.startTime);
+
+      if (!isNaN(aStart) && !isNaN(bStart) && aStart !== bStart) {
+        return aStart - bStart;
+      }
+      if (!isNaN(aStart) && isNaN(bStart)) return -1;
+      if (isNaN(aStart) && !isNaN(bStart)) return 1;
+
+      return 0;
     });
     sortedGroupIds.forEach(gid => {
       const gItems = groupMap.get(gid);
@@ -1419,6 +1437,7 @@ export default function TripPage({ tripId, onBack }) {
               {formModal ? (
                 // 渲染行程表單
                 <ScheduleForm
+                  key={`${formModal.mode}-${formModal.item?.id || formModal.day}-${formModal.altOrder || 0}`}
                   mode={formModal.mode}
                   item={formModal.item}
                   day={formModal.mode === 'add' ? formModal.day : formModal.item?.day}
@@ -1426,16 +1445,17 @@ export default function TripPage({ tripId, onBack }) {
                   groupId={formModal.groupId}
                   altOrder={formModal.altOrder}
                   tripId={tripId}
-                  onSaved={(savedItem) => {
+                  daySchedules={journeys.find(j => j.day === (formModal.mode === 'add' ? formModal.day : formModal.item?.day))?.schedule || []}
+                  setActionLoading={setActionLoading}
+                  onSaved={(savedItem, updatedDaySchedules) => {
                     setJourneys(prev => prev.map(j => {
                       if (j.day === savedItem.day) {
-                        let newSchedule;
-                        if (formModal.mode === 'edit') {
-                          newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem, isDefaultPlaceholder: false } : si);
-                        } else {
-                          newSchedule = [...(j.schedule || []), savedItem];
-                        }
-                        return { ...j, schedule: newSchedule };
+                        return {
+                          ...j,
+                          schedule: updatedDaySchedules || (formModal.mode === 'edit'
+                            ? j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem, isDefaultPlaceholder: false } : si)
+                            : [...(j.schedule || []), savedItem])
+                        };
                       }
                       return j;
                     }));
@@ -1508,6 +1528,7 @@ export default function TripPage({ tripId, onBack }) {
       {/* 手機版：行程編輯彈窗 */}
       {isMobile && formModal && (
         <ScheduleFormModal
+          key={`${formModal.mode}-${formModal.item?.id || formModal.day}-${formModal.altOrder || 0}`}
           mode={formModal.mode}
           item={formModal.item}
           day={formModal.mode === 'add' ? formModal.day : formModal.item?.day}
@@ -1515,17 +1536,18 @@ export default function TripPage({ tripId, onBack }) {
           groupId={formModal.groupId}
           altOrder={formModal.altOrder}
           tripId={tripId}
+          daySchedules={journeys.find(j => j.day === (formModal.mode === 'add' ? formModal.day : formModal.item?.day))?.schedule || []}
+          setActionLoading={setActionLoading}
           onClose={() => setFormModal(null)}
-          onSaved={(savedItem) => {
+          onSaved={(savedItem, updatedDaySchedules) => {
             setJourneys(prev => prev.map(j => {
               if (j.day === savedItem.day) {
-                let newSchedule;
-                if (formModal.mode === 'edit') {
-                  newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem, isDefaultPlaceholder: false } : si);
-                } else {
-                  newSchedule = [...(j.schedule || []), savedItem];
-                }
-                return { ...j, schedule: newSchedule };
+                return {
+                  ...j,
+                  schedule: updatedDaySchedules || (formModal.mode === 'edit'
+                    ? j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem, isDefaultPlaceholder: false } : si)
+                    : [...(j.schedule || []), savedItem])
+                };
               }
               return j;
             }));

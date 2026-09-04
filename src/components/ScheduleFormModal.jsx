@@ -5,6 +5,8 @@ import { TimePicker } from 'antd'
 import dayjs from 'dayjs'
 import { apiService } from '../services/apiService'
 import { validateScheduleForm, hasErrors } from '../utils/validator'
+import { analyzeTimeConflict, reorderSchedulesByTime } from '../utils/timeSortUtils'
+import ConflictModal from './ConflictModal'
 import './Modals.css'
 
 /**
@@ -16,10 +18,11 @@ import './Modals.css'
  * @param {string} props.groupId 排定行程的群組 ID
  * @param {number} props.altOrder 備案順序編號 (主行程為 0，備案依序為 1, 2...)
  * @param {string} props.tripId 所屬旅行計畫的 ID
- * @param {Function} props.onSaved 當資料儲存成功時觸發的回呼函式，會傳回儲存後的行程資料
+ * @param {Array} props.daySchedules 當天已有的行程資料陣列 (用於時間衝突檢測與排序)
+ * @param {Function} props.onSaved 當資料儲存成功時觸發的回呼函式，會傳回儲存後的行程資料與最新排序
  * @param {Function} props.onCancel 當點擊「取消」或關閉時觸發的回呼函式
  */
-export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId, onSaved, onCancel }) {
+export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId, daySchedules = [], setActionLoading, onSaved, onCancel }) {
   const isEdit = mode === 'edit'
 
   // form 狀態：儲存表單各個輸入欄位的值
@@ -30,17 +33,20 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
     remark: '',
     googleMapLink: '',
   })
-  
-  // isSaving 狀態：記錄目前是否正在與後端 API 傳輸儲存中，用於顯示轉圈圈與停用按鈕
+
+  // isSaving 狀態：記錄目前是否正在與後端 API 傳輸儲存中
   const [isSaving, setIsSaving] = useState(false)
-  
+
   // errors 狀態：儲存各欄位獨立驗證失敗訊息 (鍵值對)
   const [errors, setErrors] = useState({})
 
   // error 狀態：儲存後端 API 傳回的通用全域錯誤訊息
   const [apiError, setApiError] = useState(null)
 
-  // 監聽傳入的 item 或模式變化，當在「編輯」模式且資料存在時，將原行程資料填入 form 狀態中 (初始化)
+  // conflictState 狀態：衝突彈窗控制狀態
+  const [conflictState, setConflictState] = useState({ isOpen: false, data: null })
+
+  // 監聽傳入的 item 或模式變化，當模式切換時正確初始化或清空表單
   useEffect(() => {
     if (isEdit && item) {
       setForm({
@@ -51,14 +57,30 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
         googleMapLink: item.googleMapLink || '',
       })
     } else if (mode === 'addBackup' && item) {
-      // 若是新增彈性備案，預設自動帶入主行程的起訖時間，簡化使用者填寫
-      setForm((prev) => ({ ...prev, startTime: item.startTime || '', endTime: item.endTime || '' }))
+      // 若是新增彈性備案，預設自動帶入主行程的起訖時間，其餘欄位清空
+      setForm({
+        attractionName: '',
+        startTime: item.startTime || '',
+        endTime: item.endTime || '',
+        remark: '',
+        googleMapLink: '',
+      })
+    } else {
+      // 若為一般新增模式 ('add')，完整重置並清空表單
+      setForm({
+        attractionName: '',
+        startTime: '',
+        endTime: '',
+        remark: '',
+        googleMapLink: '',
+      })
     }
-  }, [isEdit, mode, item])
+    setErrors({})
+    setApiError(null)
+  }, [isEdit, mode, item, day, date])
 
   /**
    * handleChange 欄位變更處理函式
-   * 當 input 或 textarea 內容改變時觸發，並即時清除該欄位的紅字錯誤標示
    */
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -69,67 +91,136 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
   }
 
   /**
-   * handleSubmit 表單提交處理函式
-   * 點選「儲存」時觸發，負責進行欄位防呆驗證，並依據模式向 GAS 發送 API 請求
+   * saveScheduleToServer 實際發送 API 儲存與處理後端衝突回應之函式
    */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    // 呼叫全域驗證服務進行欄位防呆檢核
-    const formErrors = validateScheduleForm(form)
-    if (hasErrors(formErrors)) {
-      setErrors(formErrors)
-      return
-    }
-    setErrors({})
+  const saveScheduleToServer = async (extraPayload = {}) => {
     setIsSaving(true)
+    if (setActionLoading) setActionLoading('儲存中...')
     setApiError(null)
     try {
-      const targetDate = isEdit || mode === 'addBackup' ? item.date : date;
-      const targetDay = isEdit || mode === 'addBackup' ? item.day : day;
-
-      let savedItem = null
+      const targetDate = isEdit || mode === 'addBackup' ? item.date : date
+      const targetDay = isEdit || mode === 'addBackup' ? item.day : day
       const isPlaceholder = isEdit && item?.isDefaultPlaceholder
 
-      // 若是編輯「非佔位」的既有行程，呼叫 apiService.updateSchedule
+      let res = null
+      let savedItem = null
+
       if (isEdit && !isPlaceholder) {
-        await apiService.updateSchedule(item.id, form)
-        savedItem = {
-          ...form,
-          id: item.id,
-          day: targetDay,
-          date: targetDate,
-          groupId: item.groupId,
-          altOrder: item.altOrder,
-          sortOrder: item.sortOrder
-        }
+        res = await apiService.updateSchedule(item.id, { ...form, ...extraPayload })
       } else {
-        // 新增行程或寫入預留佔位卡片，呼叫 apiService.addSchedule
         const tempId = isEdit ? item.id : `t3-d${targetDay}-${Date.now()}`
+        const currentAlt = isEdit ? item.altOrder : (altOrder || 0)
+
         const scheduleDto = {
           tripId,
           id: tempId,
           day: targetDay,
           date: targetDate,
           groupId: isEdit ? item.groupId : (groupId || tempId),
-          altOrder: isEdit ? item.altOrder : (altOrder || 0),
-          ...form
+          altOrder: currentAlt,
+          ...form,
+          ...extraPayload
         }
-        const res = await apiService.addSchedule(scheduleDto)
-        const finalId = res?.id || res?.data?.id || tempId
-        savedItem = {
-          ...scheduleDto,
-          id: finalId,
-          groupId: isEdit ? item.groupId : (groupId || finalId),
-          sortOrder: isEdit ? item.sortOrder : 999
-        }
+        res = await apiService.addSchedule(scheduleDto)
       }
 
-      onSaved(savedItem)
+      // 檢查後端是否回傳時間衝突
+      if (res && res.hasConflict) {
+        setConflictState({ isOpen: true, data: res.conflictResult })
+        setIsSaving(false)
+        if (setActionLoading) setActionLoading(null)
+        return
+      }
+
+      // 儲存成功且無衝突
+      const savedId = res?.id || (isEdit ? item.id : null) || `t3-d${targetDay}-${Date.now()}`
+      savedItem = {
+        ...form,
+        id: savedId,
+        day: targetDay,
+        date: targetDate,
+        groupId: isEdit ? item.groupId : (groupId || savedId),
+        altOrder: isEdit ? item.altOrder : (altOrder || 0)
+      }
+
+      // 構建當天最新行程
+      let updatedDaySchedules = [...(daySchedules || [])]
+
+      // 若為同意推移，樂觀更新受影響卡片的時間
+      if (extraPayload.confirmAdjust && extraPayload.targetCardId && extraPayload.proposedNewTime && extraPayload.proposedField) {
+        updatedDaySchedules = updatedDaySchedules.map(s => {
+          if (s.id === extraPayload.targetCardId) {
+            return { ...s, [extraPayload.proposedField]: extraPayload.proposedNewTime }
+          }
+          return s
+        })
+      }
+
+      if (isEdit) {
+        updatedDaySchedules = updatedDaySchedules.map(s => s.id === savedItem.id ? { ...s, ...savedItem, isDefaultPlaceholder: false } : s)
+      } else {
+        updatedDaySchedules.push(savedItem)
+      }
+
+      const currentAltOrder = Number(isEdit ? (item?.altOrder || 0) : (altOrder || 0)) || 0
+      if (targetDay > 0 && currentAltOrder === 0) {
+        const mainCards = updatedDaySchedules.filter(s => (Number(s.altOrder) || 0) === 0 && !s.isDefaultPlaceholder)
+        let sortedMainCards
+        if (extraPayload.skipConflictCheck) {
+          const regularCards = mainCards.filter(s => s.id !== savedItem.id)
+          sortedMainCards = reorderSchedulesByTime(regularCards)
+          const maxSort = sortedMainCards.reduce((max, s) => Math.max(max, s.sortOrder || 0), 0)
+          sortedMainCards.push({ ...savedItem, sortOrder: maxSort + 1 })
+        } else {
+          sortedMainCards = reorderSchedulesByTime(mainCards)
+        }
+
+        const mainCardMap = new Map(sortedMainCards.map(m => [m.id, m]))
+        updatedDaySchedules = updatedDaySchedules.map(s => mainCardMap.has(s.id) ? mainCardMap.get(s.id) : s)
+      }
+
+      onSaved(savedItem, updatedDaySchedules)
     } catch (err) {
       setApiError(err.message)
     } finally {
       setIsSaving(false)
+      if (setActionLoading) setActionLoading(null)
     }
+  }
+
+  /**
+   * handleSubmit 表單提交處理函式
+   */
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const formErrors = validateScheduleForm(form)
+    if (hasErrors(formErrors)) {
+      setErrors(formErrors)
+      return
+    }
+    setErrors({})
+    setApiError(null)
+
+    await saveScheduleToServer()
+  }
+
+  const handleConfirmAdjust = () => {
+    const data = conflictState.data
+    setConflictState({ isOpen: false, data: null })
+    saveScheduleToServer({
+      confirmAdjust: true,
+      targetCardId: data?.targetCardId || data?.targetCard?.id,
+      proposedNewTime: data?.proposedNewTime,
+      proposedField: data?.proposedField
+    })
+  }
+
+  const handleDeclineAdjust = () => {
+    const data = conflictState.data
+    setConflictState({ isOpen: false, data: null })
+    saveScheduleToServer({
+      skipConflictCheck: true
+    })
   }
 
   return (
@@ -173,8 +264,8 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
             <TimePicker.RangePicker
               format="HH:mm"
               minuteStep={5}
-              placeholder={['開始時間 (必填)', '結束時間 (選填)']}
-              allowEmpty={[false, true]}
+              placeholder={['開始時間 (必填)', '結束時間 (必填)']}
+              allowEmpty={[false, false]}
               value={[
                 form.startTime ? dayjs(form.startTime, 'HH:mm') : null,
                 form.endTime ? dayjs(form.endTime, 'HH:mm') : null
@@ -229,6 +320,15 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
           {isSaving ? '儲存中...' : '儲存'}
         </button>
       </div>
+
+      {/* 衝突確認彈窗 */}
+      <ConflictModal
+        isOpen={conflictState.isOpen}
+        conflictData={conflictState.data}
+        onConfirmAdjust={handleConfirmAdjust}
+        onDeclineAdjust={handleDeclineAdjust}
+        onClose={() => setConflictState({ isOpen: false, data: null })}
+      />
     </div>
   )
 }

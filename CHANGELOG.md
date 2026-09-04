@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2026-09-04
+
+### Added
+- **行程時間衝突檢測與雙向自動推移機制 (Time Conflict Detection & Auto-Resolution)**：
+  - **雙向時間衝突演算法 (`timeSortUtils.js` / GAS `backend/SchedulesService.gs`)**：支援雙向衝突檢測（包含新行程覆蓋既有行程開頭，或既有行程結尾覆蓋新行程），並依據重疊區間自動計算建議推移時間（`startTime` 或 `endTime`）。
+  - **衝突提醒彈窗 (`ConflictModal.jsx`)**：當行程時間重疊時彈窗提示使用者，提供「是 (調整時間)」自動更新被影響行程時間，與「否 (置於當天最後)」選項；當行程同時與多張卡片重疊時，精確提示「與『XXX』等多個行程時間嚴重衝突，將置於當天最後面」。
+  - **實體按鈕視覺質感 (`Modals.css`)**：為 `ConflictModal` 補齊 `.modal-btn`, `.primary-btn`, `.secondary-btn` 的外框、陰影、懸停上浮質感，取代傳統純文字外框。
+
+### Changed
+- **後端統一衝突檢測與自動排序架構 (Backend-Driven Conflict Architecture)**：
+  - **單一 API 傳輸與衝突職責下沉**：將時間衝突分析、行程推移與 `sortOrder` 自動重排計算完全移至 Google Apps Script 後端處理。前端提交表單時若有衝突，後端暫不寫入試算表並回傳 `hasConflict: true`；前端點選彈窗選項後再發送帶有相應旗標（`confirmAdjust` / `skipConflictCheck`）之二次請求。
+  - **Spreadsheet 狀態同步與寫回**：GAS 於異動與重排後執行 `SpreadsheetApp.flush()`，確保資料庫與試算表數據實時一致性。
+- **對接底層全域 Loading 遮罩 (`actionLoading`)**：
+  - 表單儲存與衝突彈窗選項點擊時，無縫對接 `TripPage.jsx` 底層現有的全螢幕毛玻璃 Loading 遮罩 (`action-loading-overlay`)，為非同步請求提供明確且防重複點擊的加載體驗。
+
+### Fixed
+- **頁面行程分組排序權重修正 (`TripPage.jsx`)**：
+  - 修正 `scheduleGroups` 排序邏輯改為優先比較 `sortOrder`（與後端 `TripsService.gs` 一致），解決點選「否」置於當天最後的卡片因 `startTime` 被誤排在中間的問題。
+- **網頁版新增行程表單狀態初始化修正 (`ScheduleFormModal.jsx` & `TripPage.jsx`)**：
+  - 修正 `ScheduleForm` 的 `useEffect` 初始邏輯並為元件補上動態 `key` 屬性，徹底解決在網頁版點選查看卡片後再點選「新增行程」時，右側編輯欄位未清空而保留舊卡片資料的 Bug。
+
 ## [0.8.0] - 2026-09-04
 
 ### Added
