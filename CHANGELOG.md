@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
   - **衝突提醒彈窗 (`ConflictModal.jsx`)**：當行程時間重疊時彈窗提示使用者，提供「是 (調整時間)」自動更新被影響行程時間，與「否 (置於當天最後)」選項；當行程同時與多張卡片重疊時，精確提示「與『XXX』等多個行程時間嚴重衝突，將置於當天最後面」。
   - **實體按鈕視覺質感 (`Modals.css`)**：為 `ConflictModal` 補齊 `.modal-btn`, `.primary-btn`, `.secondary-btn` 的外框、陰影、懸停上浮質感，取代傳統純文字外框。
 
+- **PWA App 圖示與分頁 Favicon 圖示分流設定 (PWA App Icon & Favicon Disambiguation)**：
+  - **PWA App 圖示 (`pwa-192x192.png`, `pwa-512x512.png`, `apple-touch-icon.png`)**：將「現代飛機輪廓與火柴人」圖案設定為獨立的 PWA 安裝圖示、主畫面應用程式圖示與 iOS Apple Touch Icon。
+  - **網頁分頁 Favicon (`favicon.svg`)**：將瀏覽器分頁頁籤圖示設定為首頁同款的深木褐小飛機（`#583f24`），維持網頁分頁素雅質感。
+  - **PWA Web Manifest & Vite 靜態資產配置 (`vite.config.js` & `index.html`)**：完整更新 PWA 資源包含清單、主題色（`#583f24`）、背景色（`#faf8f5`）與 iOS / Android 裝置專屬圖示關聯。
+
 ### Changed
 - **後端統一衝突檢測與自動排序架構 (Backend-Driven Conflict Architecture)**：
   - **單一 API 傳輸與衝突職責下沉**：將時間衝突分析、行程推移與 `sortOrder` 自動重排計算完全移至 Google Apps Script 後端處理。前端提交表單時若有衝突，後端暫不寫入試算表並回傳 `hasConflict: true`；前端點選彈窗選項後再發送帶有相應旗標（`confirmAdjust` / `skipConflictCheck`）之二次請求。
