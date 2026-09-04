@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2026-09-04
+
+### Added
+- **PWA App 圖示與分頁 Favicon 圖示分流設定 (PWA App Icon & Favicon Disambiguation)**：
+  - **PWA App 圖示 (`pwa-192x192.png`, `pwa-512x512.png`, `apple-touch-icon.png`)**：將「現代飛機輪廓與火柴人」圖案設定為獨立的 PWA 安裝圖示、主畫面應用程式圖示與 iOS Apple Touch Icon。
+  - **網頁分頁 Favicon (`favicon.svg`)**：將瀏覽器分頁頁籤圖示設定為首頁同款的深木褐小飛機（`#583f24`），維持網頁分頁素雅質感。
+  - **PWA Web Manifest & Vite 靜態資產配置 (`vite.config.js` & `index.html`)**：完整更新 PWA 資源包含清單、主題色（`#583f24`）、背景色（`#faf8f5`）與 iOS / Android 裝置專屬圖示關聯。
+
 ## [0.8.1] - 2026-09-04
 
 ### Added
@@ -9,11 +17,6 @@ All notable changes to this project will be documented in this file.
   - **雙向時間衝突演算法 (`timeSortUtils.js` / GAS `backend/SchedulesService.gs`)**：支援雙向衝突檢測（包含新行程覆蓋既有行程開頭，或既有行程結尾覆蓋新行程），並依據重疊區間自動計算建議推移時間（`startTime` 或 `endTime`）。
   - **衝突提醒彈窗 (`ConflictModal.jsx`)**：當行程時間重疊時彈窗提示使用者，提供「是 (調整時間)」自動更新被影響行程時間，與「否 (置於當天最後)」選項；當行程同時與多張卡片重疊時，精確提示「與『XXX』等多個行程時間嚴重衝突，將置於當天最後面」。
   - **實體按鈕視覺質感 (`Modals.css`)**：為 `ConflictModal` 補齊 `.modal-btn`, `.primary-btn`, `.secondary-btn` 的外框、陰影、懸停上浮質感，取代傳統純文字外框。
-
-- **PWA App 圖示與分頁 Favicon 圖示分流設定 (PWA App Icon & Favicon Disambiguation)**：
-  - **PWA App 圖示 (`pwa-192x192.png`, `pwa-512x512.png`, `apple-touch-icon.png`)**：將「現代飛機輪廓與火柴人」圖案設定為獨立的 PWA 安裝圖示、主畫面應用程式圖示與 iOS Apple Touch Icon。
-  - **網頁分頁 Favicon (`favicon.svg`)**：將瀏覽器分頁頁籤圖示設定為首頁同款的深木褐小飛機（`#583f24`），維持網頁分頁素雅質感。
-  - **PWA Web Manifest & Vite 靜態資產配置 (`vite.config.js` & `index.html`)**：完整更新 PWA 資源包含清單、主題色（`#583f24`）、背景色（`#faf8f5`）與 iOS / Android 裝置專屬圖示關聯。
 
 ### Changed
 - **後端統一衝突檢測與自動排序架構 (Backend-Driven Conflict Architecture)**：
