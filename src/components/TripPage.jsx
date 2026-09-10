@@ -1482,10 +1482,18 @@ export default function TripPage({ tripId, onBack }) {
                 // 渲染交通方式表單 (網頁版右側欄位)
                 <TransportForm
                   item={transportFormItem}
-                  onSaved={(savedItem) => {
+                  daySchedules={journeys.find(j => j.day === (transportFormItem?.day || selectedDay))?.schedule || []}
+                  onSaved={(savedItem, shiftedItems = []) => {
+                    // 將目標卡片與所有被骨牌連鎖推移的卡片整合成 Map，批次更新 state
+                    const updatedMap = new Map();
+                    (shiftedItems || []).forEach(si => updatedMap.set(si.id, si));
+                    updatedMap.set(savedItem.id, savedItem);
+
                     setJourneys(prev => prev.map(j => {
                       if (j.day === savedItem.day) {
-                        const newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem } : si);
+                        const newSchedule = j.schedule.map(si => 
+                          updatedMap.has(si.id) ? { ...si, ...updatedMap.get(si.id) } : si
+                        );
                         return { ...j, schedule: newSchedule };
                       }
                       return j;
@@ -1629,15 +1637,23 @@ export default function TripPage({ tripId, onBack }) {
         />
       )}
 
-      {/* 交通方式編輯彈窗 */}
+      {/* 交通方式編輯彈窗 (手機版) */}
       {transportModalItem && (
         <TransportFormModal
           item={transportModalItem}
+          daySchedules={journeys.find(j => j.day === (transportModalItem?.day || selectedDay))?.schedule || []}
           onClose={() => setTransportModalItem(null)}
-          onSaved={(savedItem) => {
+          onSaved={(savedItem, shiftedItems = []) => {
+            // 將目標卡片與所有被骨牌連鎖推移的卡片整合成 Map，批次更新 state
+            const updatedMap = new Map();
+            (shiftedItems || []).forEach(si => updatedMap.set(si.id, si));
+            updatedMap.set(savedItem.id, savedItem);
+
             setJourneys(prev => prev.map(j => {
               if (j.day === savedItem.day) {
-                const newSchedule = j.schedule.map(si => si.id === savedItem.id ? { ...si, ...savedItem } : si);
+                const newSchedule = j.schedule.map(si => 
+                  updatedMap.has(si.id) ? { ...si, ...updatedMap.get(si.id) } : si
+                );
                 return { ...j, schedule: newSchedule };
               }
               return j;

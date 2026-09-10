@@ -51,7 +51,11 @@ function groupToJourneys(flatData) {
       endTime: item.endTime,
       attractionName: item.attractionName,
       remark: item.remark,
-      googleMapLink: item.googleMapLink
+      googleMapLink: item.googleMapLink,
+      transportType: item.transportType || '',
+      transportCustomName: item.transportCustomName || '',
+      transportDurationMinutes: Number(item.transportDurationMinutes) || 0,
+      transportRemark: item.transportRemark || ''
     });
   });
   

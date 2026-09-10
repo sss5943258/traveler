@@ -21,6 +21,19 @@ function gasMinutesToTime(totalMinutes) {
   return hStr + ':' + mStr;
 }
 
+/**
+ * 將總分鐘數格式化為 "HH:mm" 時間字串 (若超過 23:59 則截斷封頂在 23:59)
+ */
+function gasMinutesToTimeClamped(totalMinutes) {
+  if (isNaN(totalMinutes) || totalMinutes < 0) return '00:00';
+  if (totalMinutes >= 1439) return '23:59';
+  var hours = Math.floor(totalMinutes / 60);
+  var mins = totalMinutes % 60;
+  var hStr = hours < 10 ? '0' + hours : String(hours);
+  var mStr = mins < 10 ? '0' + mins : String(mins);
+  return hStr + ':' + mStr;
+}
+
 function gasAnalyzeTimeConflict(newCard, daySchedules) {
   if (!newCard || !newCard.startTime || !newCard.endTime) {
     return { status: 'NONE' };
@@ -287,6 +300,178 @@ function addSchedule(payload) {
 }
 
 
+/**
+ * 後端核心計算：交通時間造成的後續行程「骨牌連鎖推移」
+ * 
+ * 1. 取得當天該旅程的所有 Schedule 項目
+ * 2. 依照 groupId 與 sortOrder / startTime 進行分組與時間排序
+ * 3. 尋找目標卡片 (payload.id) 與前一張出發卡片
+ * 4. 判斷時間衝突：若「前卡結束時間 + 交通時間 > 當前卡片開始時間」，順延當前卡片
+ * 5. 維持停留時長（EndTime - StartTime），骨牌式連鎖檢查後續卡片
+ * 6. 若時間超過當天 23:59，將其截斷卡在 23:59 並標記 clampedToMidnight: true
+ * 7. 備案 (altOrder > 0) 與主行程同步推延，無時間卡片略過
+ * 8. 批次寫回 Google Sheet 並回傳所有被推延之卡片陣列
+ */
+function gasCalculateAndApplyCascadingTimeShift(sheet, data, headers, colMap, payload, existingItem, existingRowIndex) {
+  var tripId = existingItem.tripId;
+  var targetDay = existingItem.day;
+  var transportMinutes = Number(payload.transportDurationMinutes) || 0;
+
+  var idCol = colMap['id'] - 1;
+  var groupIdCol = colMap['groupId'] - 1;
+  var altOrderCol = colMap['altOrder'] - 1;
+  var sortOrderCol = colMap['sortOrder'] - 1;
+  var startTimeCol = colMap['startTime'] - 1;
+  var endTimeCol = colMap['endTime'] - 1;
+  var attractionNameCol = colMap['attractionName'] - 1;
+  var remarkCol = colMap['remark'] - 1;
+  var googleMapLinkCol = colMap['googleMapLink'] - 1;
+  var transportTypeCol = colMap['transportType'] - 1;
+  var transportCustomNameCol = colMap['transportCustomName'] - 1;
+  var transportDurationMinutesCol = colMap['transportDurationMinutes'] - 1;
+  var transportRemarkCol = colMap['transportRemark'] - 1;
+
+  // 1. 抓取當天所有卡片列
+  var dayRows = [];
+  for (var i = 1; i < data.length; i++) {
+    var rTripId = String(data[i][colMap['tripId'] - 1]);
+    var rDay = Number(data[i][colMap['day'] - 1]);
+    if (rTripId === String(tripId) && rDay === targetDay) {
+      dayRows.push({
+        rowIndex: i + 1,
+        id: String(data[i][idCol]),
+        groupId: String(data[i][groupIdCol] || data[i][idCol]),
+        altOrder: Number(data[i][altOrderCol]) || 0,
+        sortOrder: data[i][sortOrderCol] !== '' && data[i][sortOrderCol] !== undefined ? Number(data[i][sortOrderCol]) : 999,
+        startTime: String(data[i][startTimeCol] || ''),
+        endTime: String(data[i][endTimeCol] || ''),
+        attractionName: String(data[i][attractionNameCol] || ''),
+        remark: String(data[i][remarkCol] || ''),
+        googleMapLink: String(data[i][googleMapLinkCol] || ''),
+        transportType: String(data[i][transportTypeCol] || ''),
+        transportCustomName: String(data[i][transportCustomNameCol] || ''),
+        transportDurationMinutes: Number(data[i][transportDurationMinutesCol]) || 0,
+        transportRemark: String(data[i][transportRemarkCol] || '')
+      });
+    }
+  }
+
+  if (dayRows.length <= 1) {
+    return { shiftedItems: [], clampedToMidnight: false };
+  }
+
+  // 2. 依照 groupId 分組
+  var groupMap = {};
+  dayRows.forEach(function(item) {
+    var gid = item.groupId || item.id;
+    if (!groupMap[gid]) groupMap[gid] = [];
+    groupMap[gid].push(item);
+  });
+
+  var groupIds = Object.keys(groupMap);
+  groupIds.sort(function(gidA, gidB) {
+    var pA = groupMap[gidA].find(function(i) { return i.altOrder === 0; }) || groupMap[gidA][0];
+    var pB = groupMap[gidB].find(function(i) { return i.altOrder === 0; }) || groupMap[gidB][0];
+
+    if (pA.sortOrder !== pB.sortOrder) return pA.sortOrder - pB.sortOrder;
+
+    var aStart = gasTimeToMinutes(pA.startTime);
+    var bStart = gasTimeToMinutes(pB.startTime);
+    if (!isNaN(aStart) && !isNaN(bStart) && aStart !== bStart) return aStart - bStart;
+    if (!isNaN(aStart) && isNaN(bStart)) return -1;
+    if (isNaN(aStart) && !isNaN(bStart)) return 1;
+    return 0;
+  });
+
+  var groups = groupIds.map(function(gid) {
+    var items = groupMap[gid];
+    items.sort(function(a, b) { return a.altOrder - b.altOrder; });
+    return { id: gid, items: items };
+  });
+
+  // 3. 尋找目標卡片所在群組
+  var targetGroupIndex = -1;
+  for (var g = 0; g < groups.length; g++) {
+    if (groups[g].items.some(function(i) { return String(i.id) === String(payload.id); })) {
+      targetGroupIndex = g;
+      break;
+    }
+  }
+
+  if (targetGroupIndex <= 0) {
+    return { shiftedItems: [], clampedToMidnight: false };
+  }
+
+  // 4. 取得前一卡片的主方案結束時間
+  var prevGroup = groups[targetGroupIndex - 1];
+  var prevMainItem = prevGroup.items.find(function(i) { return i.altOrder === 0; }) || prevGroup.items[0];
+  var prevEndMinutes = gasTimeToMinutes(prevMainItem.endTime);
+
+  if (isNaN(prevEndMinutes)) {
+    return { shiftedItems: [], clampedToMidnight: false };
+  }
+
+  var expectedArrivalAtTarget = prevEndMinutes + transportMinutes;
+  var shiftedItemsMap = {};
+  var clampedToMidnight = false;
+  var previousEffectiveEndMinutes = null;
+
+  for (var gIdx = targetGroupIndex; gIdx < groups.length; gIdx++) {
+    var currentGroup = groups[gIdx];
+    var mainItem = currentGroup.items.find(function(i) { return i.altOrder === 0; }) || currentGroup.items[0];
+    var origStartMinutes = gasTimeToMinutes(mainItem.startTime);
+    var origEndMinutes = gasTimeToMinutes(mainItem.endTime);
+
+    if (isNaN(origStartMinutes)) continue;
+
+    var arrivalMinutes;
+    if (gIdx === targetGroupIndex) {
+      arrivalMinutes = expectedArrivalAtTarget;
+    } else {
+      var selfTransport = Number(mainItem.transportDurationMinutes) || 0;
+      arrivalMinutes = previousEffectiveEndMinutes + selfTransport;
+    }
+
+    if (arrivalMinutes > origStartMinutes) {
+      var shiftDiff = arrivalMinutes - origStartMinutes;
+      var newStartMinutes = arrivalMinutes;
+      var newEndMinutes = !isNaN(origEndMinutes) ? (origEndMinutes + shiftDiff) : NaN;
+
+      if (newStartMinutes >= 1439 || (!isNaN(newEndMinutes) && newEndMinutes >= 1439)) {
+        clampedToMidnight = true;
+        if (newStartMinutes > 1439) newStartMinutes = 1439;
+        if (!isNaN(newEndMinutes) && newEndMinutes > 1439) newEndMinutes = 1439;
+      }
+
+      var formattedNewStart = gasMinutesToTimeClamped(newStartMinutes);
+      var formattedNewEnd = !isNaN(newEndMinutes) ? gasMinutesToTimeClamped(newEndMinutes) : mainItem.endTime;
+
+      currentGroup.items.forEach(function(item) {
+        item.startTime = formattedNewStart;
+        item.endTime = formattedNewEnd;
+        shiftedItemsMap[item.id] = item;
+      });
+
+      previousEffectiveEndMinutes = !isNaN(newEndMinutes) ? newEndMinutes : newStartMinutes;
+    } else {
+      break;
+    }
+  }
+
+  var shiftedList = Object.keys(shiftedItemsMap).map(function(k) { return shiftedItemsMap[k]; });
+
+  // 5. 批次將新時間寫入 Google Sheet
+  shiftedList.forEach(function(item) {
+    sheet.getRange(item.rowIndex, startTimeCol + 1).setValue(item.startTime);
+    sheet.getRange(item.rowIndex, endTimeCol + 1).setValue(item.endTime);
+  });
+
+  return {
+    shiftedItems: shiftedList,
+    clampedToMidnight: clampedToMidnight
+  };
+}
+
 // ═══════════════════════════════════════════════
 // CRUD: 編輯行程（依 id 找到該列後整行更新）
 // ═══════════════════════════════════════════════
@@ -309,9 +494,16 @@ function updateSchedule(payload) {
         day: Number(data[i][colMap['day'] - 1]),
         date: data[i][colMap['date'] - 1],
         altOrder: Number(data[i][colMap['altOrder'] - 1]) || 0,
+        sortOrder: data[i][colMap['sortOrder'] - 1],
         startTime: payload.startTime !== undefined ? payload.startTime : data[i][colMap['startTime'] - 1],
         endTime: payload.endTime !== undefined ? payload.endTime : data[i][colMap['endTime'] - 1],
         attractionName: payload.attractionName !== undefined ? payload.attractionName : data[i][colMap['attractionName'] - 1],
+        remark: data[i][colMap['remark'] - 1],
+        googleMapLink: data[i][colMap['googleMapLink'] - 1],
+        transportType: data[i][colMap['transportType'] - 1],
+        transportCustomName: data[i][colMap['transportCustomName'] - 1],
+        transportDurationMinutes: data[i][colMap['transportDurationMinutes'] - 1],
+        transportRemark: data[i][colMap['transportRemark'] - 1]
       };
       break;
     }
@@ -325,8 +517,8 @@ function updateSchedule(payload) {
   const targetDay = payload.day !== undefined ? Number(payload.day) : existingItem.day;
   const altOrder = payload.altOrder !== undefined ? Number(payload.altOrder) : existingItem.altOrder;
 
-  // 僅針對主行程進行衝突檢測
-  if (targetDay > 0 && altOrder === 0 && existingItem.startTime && existingItem.endTime) {
+  // 僅針對主行程進行單一衝突檢測 (若未開啟 autoShift)
+  if (!payload.autoShift && targetDay > 0 && altOrder === 0 && existingItem.startTime && existingItem.endTime) {
     const isConfirm = payload.confirmAdjust === true;
     const isSkip = payload.skipConflictCheck === true;
 
@@ -358,6 +550,7 @@ function updateSchedule(payload) {
     }
   }
 
+  // 更新各基礎欄位
   if (payload.day !== undefined) sheet.getRange(existingRowIndex, colMap['day'] || 2).setValue(Number(payload.day));
   if (payload.date !== undefined) sheet.getRange(existingRowIndex, colMap['date'] || 3).setValue(payload.date);
   if (payload.sortOrder !== undefined) sheet.getRange(existingRowIndex, colMap['sortOrder'] || 7).setValue(Number(payload.sortOrder));
@@ -371,6 +564,16 @@ function updateSchedule(payload) {
   if (payload.transportDurationMinutes !== undefined) sheet.getRange(existingRowIndex, colMap['transportDurationMinutes'] || 15).setValue(Number(payload.transportDurationMinutes) || 0);
   if (payload.transportRemark !== undefined) sheet.getRange(existingRowIndex, colMap['transportRemark'] || 16).setValue(payload.transportRemark);
 
+  let shiftedItems = [];
+  let clampedToMidnight = false;
+
+  // 若使用者勾選 autoShift 且交通時間大於 0，執行後端連鎖時間推移運算
+  if (payload.autoShift === true && Number(payload.transportDurationMinutes) > 0) {
+    const shiftResult = gasCalculateAndApplyCascadingTimeShift(sheet, data, headers, colMap, payload, existingItem, existingRowIndex);
+    shiftedItems = shiftResult.shiftedItems;
+    clampedToMidnight = shiftResult.clampedToMidnight;
+  }
+
   SpreadsheetApp.flush();
 
   if (targetDay > 0 && altOrder === 0) {
@@ -378,7 +581,30 @@ function updateSchedule(payload) {
     gasReorderAndSaveSchedules(sheet, tripId, targetDay, forcedLastId);
   }
 
-  return { success: true, hasConflict: false };
+  // 取得目標卡片最新時間
+  const targetUpdated = shiftedItems.find(function(si) { return String(si.id) === String(payload.id); });
+  const finalItem = {
+    ...existingItem,
+    id: payload.id,
+    transportType: payload.transportType !== undefined ? payload.transportType : existingItem.transportType,
+    transportCustomName: payload.transportCustomName !== undefined ? payload.transportCustomName : existingItem.transportCustomName,
+    transportDurationMinutes: payload.transportDurationMinutes !== undefined ? Number(payload.transportDurationMinutes) : existingItem.transportDurationMinutes,
+    transportRemark: payload.transportRemark !== undefined ? payload.transportRemark : existingItem.transportRemark,
+    startTime: targetUpdated ? targetUpdated.startTime : (payload.startTime !== undefined ? payload.startTime : existingItem.startTime),
+    endTime: targetUpdated ? targetUpdated.endTime : (payload.endTime !== undefined ? payload.endTime : existingItem.endTime)
+  };
+
+  if (!targetUpdated) {
+    shiftedItems.unshift(finalItem);
+  }
+
+  return {
+    success: true,
+    hasConflict: false,
+    shiftedItems: shiftedItems,
+    clampedToMidnight: clampedToMidnight,
+    item: finalItem
+  };
 }
 
 // ═══════════════════════════════════════════════

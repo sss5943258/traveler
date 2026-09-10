@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - 2026-09-10
+
+### Added
+- **交通方式自動連鎖順延後續行程時間 (Automatic Cascading Time Shift for Transit)**：
+  - **自動順延開關 (`TransportFormModal.jsx`)**：於交通方式表單中新增 Ant Design `Checkbox`「自動順延後續行程」（預設為勾選狀態），送出時直接連帶處理，無冗餘確認彈窗。
+  - **後端單一 Single Source of Truth 演算架構 (`backend/SchedulesService.gs`)**：由 Google Apps Script 後端作為唯一商業邏輯來源，於 `updateSchedule` 處理 `autoShift: true`，單次 HTTP 請求即可在後端完成時間衝突檢測、連鎖推移與試算表寫入。
+  - **智慧接續與停留時長維持**：當「前卡結束時間 + 交通時間 > 當前卡片開始時間」時自動順延，並維持該卡片原有的停留時長（`EndTime - StartTime`）；若擠壓到下一張卡片則繼續骨牌式連鎖後推，直到遇見足夠空檔為止。
+  - **同群組彈性備案同步連動**：群組內的彈性備案（`altOrder > 0`）自動跟隨主方案進行相同時間差的同步推移；無填寫時間之卡片自動略過，不中斷推移鏈。
+  - **跨日午夜邊界防呆截斷**：若連鎖順延導致卡片時間超過當日 23:59，後端自動將結束時間貼平於 `23:59` 並標記 `clampedToMidnight: true`，前端透過 Ant Design `message.info` 即時提醒使用者。
+  - **批次 State 響應 (`TripPage.jsx`)**：API 回傳包含目標卡片與所有被推移卡片的最新資料，前端以 `Map` 批次合併至 `journeys` state，畫面即時無縫響應。
+
+### Changed
+- **後端查詢回傳交通欄位補齊 (`backend/Until.gs`)**：
+  - 於 `groupToJourneys` 補齊 `transportType`、`transportCustomName`、`transportDurationMinutes` 與 `transportRemark` 欄位輸出，確保查詢行程時能完整載入交通資訊。
+- **GAS 部署 API 端點更新 (`src/config.js`)**：
+  - 更新 `API_URL_GAS` 至最新發布之 Google Apps Script Web App 進入點。
+
 ## [0.8.2] - 2026-09-04
 
 ### Added
