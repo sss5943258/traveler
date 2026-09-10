@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.5] - 2026-09-11
+
+### Changed
+- **行程間交通方式指示箭頭 UI 緊湊化佈局 (Compact Horizontal Transit Arrow UI)**：
+  - **Icon 與時間左右水平並排收攏 (`TransportArrow`)**：將原本上下三行垂直堆疊（Icon 圓徽章 ➔ 時間 ➔ 箭頭）改為單一圓角膠囊 Badge 內水平並排（`[ 🚌 5m ]`），下方居中配置向下箭頭 `↓`。
+  - **垂直高度縮減與微質感優化**：縮減卡片間垂直高度（`my-1.5`、Icon 由 20px 調整為 15px），搭配精緻毛玻璃圓角膠囊與微陰影，解決上下排列導致卡片間距過長的問題，提升整體視覺俐落感與瀏覽節奏。
+
 ## [0.8.4] - 2026-09-10
 
 ### Added

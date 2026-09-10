@@ -55,19 +55,19 @@ const formatTransportDuration = (totalMinutes) => {
   return `${remainingMins}m`;
 };
 
-// 輔助函式：依交通方式取得對應 Icon 與顯示名稱
-const getTransportMeta = (type, customName) => {
+// 輔助函式：依交通方式取得對應 Icon 與顯示名稱 (支援自訂 Icon 尺寸)
+const getTransportMeta = (type, customName, iconSize = 15) => {
   switch (type) {
     case 'walk':
-      return { label: '步行', icon: <Footprints size={20} /> };
+      return { label: '步行', icon: <Footprints size={iconSize} /> };
     case 'car':
-      return { label: '開車', icon: <Car size={20} /> };
+      return { label: '開車', icon: <Car size={iconSize} /> };
     case 'bus':
-      return { label: '公車', icon: <Bus size={20} /> };
+      return { label: '公車', icon: <Bus size={iconSize} /> };
     case 'subway':
-      return { label: '地鐵', icon: <Train size={20} /> };
+      return { label: '地鐵', icon: <Train size={iconSize} /> };
     case 'custom':
-      return { label: customName || '自訂', icon: <Navigation size={20} /> };
+      return { label: customName || '自訂', icon: <Navigation size={iconSize} /> };
     default:
       return null;
   }
@@ -75,15 +75,21 @@ const getTransportMeta = (type, customName) => {
 
 /**
  * TransportArrow 元件 (景點間的交通箭頭)
+ * 渲染景點卡片之間的交通方式 Icon、預估花費時間與指示箭頭
+ * 
+ * [React 觀念解析 - 佈局緊湊化與條件渲染 (Horizontal Badge Layout)]
+ * 原本將「Icon 圓形圖標」、「花費時間文字」與「向下箭頭」分為三行垂直排列 (flex-col)，
+ * 導致卡片間距過長。此處將 Icon 與時間水平收攏在同一顆圓角膠囊 (rounded-full Badge) 內 (flex-row)，
+ * 下方再配置置中的向下指示箭頭，大幅壓低垂直高度，同時保持手繪質感與點擊易用性。
  */
 function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
-  const meta = targetItem ? getTransportMeta(targetItem.transportType, targetItem.transportCustomName) : null;
+  const meta = targetItem ? getTransportMeta(targetItem.transportType, targetItem.transportCustomName, 15) : null;
   const durationText = targetItem ? formatTransportDuration(targetItem.transportDurationMinutes) : '';
   const hasTransport = Boolean(meta);
 
   return (
     <div
-      className="transport-arrow-container cursor-pointer my-2 flex flex-col items-center justify-center transition-all group"
+      className="transport-arrow-container cursor-pointer my-1.5 flex flex-col items-center justify-center transition-all group"
       onClick={(e) => {
         e.stopPropagation();
         if (!isReadOnly && targetItem && onEditTransport) {
@@ -94,21 +100,22 @@ function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
     >
       {hasTransport ? (
         <div className="flex flex-col items-center text-[var(--primary-dark)] hover:scale-105 transition-transform">
-          <div className="flex items-center gap-1 text-gray-700 font-medium text-xs bg-white/70 px-2 py-1 rounded-full border border-amber-200/60 shadow-sm mb-0.5">
-            {meta.icon}
-            {targetItem.transportType === 'custom' && <span className="text-[11px] font-semibold">{meta.label}</span>}
+          {/* 交通方式圖示與時間：水平收攏在同一顆圓角膠囊 Badge 內 (左右並排) */}
+          <div className="flex items-center gap-1.5 text-gray-700 font-medium text-xs bg-white/85 px-2.5 py-0.5 rounded-full border border-amber-200/60 shadow-sm mb-0.5">
+            <span className="text-[var(--primary-dark)] flex items-center">{meta.icon}</span>
+            {targetItem.transportType === 'custom' && <span className="text-[11px] font-semibold text-gray-700">{meta.label}</span>}
+            {durationText && (
+              <span className="text-[11px] font-bold text-gray-700 tracking-tight">
+                {durationText}
+              </span>
+            )}
           </div>
-          {durationText && (
-            <span className="text-[11px] font-bold text-gray-600 mb-0.5 tracking-tight">
-              {durationText}
-            </span>
-          )}
-          <ArrowDown size={18} className="opacity-80 text-[var(--primary-dark)]" />
+          <ArrowDown size={15} className="opacity-75 text-[var(--primary-dark)]" />
         </div>
       ) : (
         <div className="flex flex-col items-center opacity-40 hover:opacity-100 text-[var(--primary-dark)] transition-opacity py-1">
           <span className="text-[10px] font-medium text-gray-500 hidden group-hover:block mb-0.5">新增交通</span>
-          <ArrowDown size={18} />
+          <ArrowDown size={16} />
         </div>
       )}
     </div>
