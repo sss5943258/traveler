@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.4] - 2026-09-10
+
+### Added
+- **彈性備案左右順序調換與轉正主要行程功能 (Reorder & Promote Backup Schedules)**：
+  - **備案卡片操作選單分流 (`CardMenu`)**：
+    - 主要行程卡片（`altOrder === 0`）維持原有管理選單。
+    - 彈性備案卡片（`altOrder > 0`）精簡非必要選項，專屬提供「向左移 (`ArrowLeft`)」、「向右移 (`ArrowRight`)」、「設為主要行程 (`CheckCircle2`)」。
+    - 邊界防呆機制：最右側末位備案之「向右移」按鈕自動置灰並停用點擊（`disabled`），首位備案之「向左移」按鈕亦自動停用。
+  - **智慧主行程變更與交通資訊無縫繼承**：
+    - 當備案卡片透過「向左移」置於群組首位（index 0）或點選「設為主要行程」時，該備案正式升格為主要行程（`altOrder = 0`），原主行程與其他備案依序向後順延。
+    - GAS 後端演算於變更主行程時，自動將原主行程的前置抵達交通資訊（`transportType`、`transportDurationMinutes` 等）移轉給新主行程繼承，原主行程交通資訊清空，確保上一行程至此點的交通箭頭連接不斷裂。
+    - 主行程變更成功後，前端即時以 Ant Design `message.success('主行程被變更了, 記得調整交通方式與時間喔')` 提示使用者檢查交通與時間。
+  - **自動聚焦滾動與批次 State 響應 (`TripPage.jsx`)**：
+    - 完成換位後透過 `scrollToIndex` 平滑滾動聚焦至該卡片之最新排列位置。
+    - 前端以 `Map` 批次合併後端回傳之更新項目至 React `journeys` state，達成即時無縫響應。
+  - **前端 API 服務層與後端路由擴充 (`apiService.js`, `backend/SchedulesService.gs`, `backend/Main.gs`)**：
+    - 新增 `reorderGroupBackups(tripId, groupId, orderedIds)` 介面。
+    - 後端新增 `reorderGroupBackups(payload)` 商業邏輯，支援批次計算與寫回 Google 試算表。
+
+### Fixed
+- **修復 SortableGroup 中 Props 解構遺漏導致的 ReferenceError (`TripPage.jsx`)**：
+  - 於 `SortableGroup` 元件參數列表中補齊 `onMoveBackupLeft`、`onMoveBackupRight` 與 `onPromoteToMain` 等回呼函式之解構接收，徹底修復點選「向右移」時因函式作用域未定義所引發的 `Uncaught ReferenceError: onMoveBackupRight is not defined` 錯誤。
+
 ## [0.8.3] - 2026-09-10
 
 ### Added

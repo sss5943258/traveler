@@ -667,3 +667,153 @@ function updateScheduleOrder(payload) {
   return { success: true, message: "群組順序更新成功" };
 }
 
+// ═══════════════════════════════════════════════
+// CRUD: 改變同一群組內備案順序與轉正主要行程
+// ═══════════════════════════════════════════════
+/**
+ * 改變同一群組內多筆備案順序 (橫向調換與轉正主要行程)
+ * 
+ * 1. 依據 tripId 與 groupId 撈出該群組所有的 Schedule 列
+ * 2. 比對原主要行程 (altOrder === 0) 與新傳入的第 0 項 (orderedIds[0])
+ * 3. 若主要行程換人：
+ *    - 將原主行程的交通資訊 (transportType, transportCustomName, transportDurationMinutes, transportRemark) 轉移給新主行程
+ *    - 原主行程的交通欄位清空
+ * 4. 依照 orderedIds 的索引重新分配 altOrder: 0, 1, 2...
+ * 5. 批次將 altOrder 與交通欄位寫入 Google Sheets
+ * 6. 回傳 updatedItems (包含該群組所有更新後的最新資料)
+ * 
+ * @param {Object} payload { tripId, groupId, orderedIds }
+ * @returns {Object} { success: true, updatedItems: Array, isMainChanged: boolean }
+ */
+function reorderGroupBackups(payload) {
+  const tripId = payload.tripId;
+  const groupId = payload.groupId;
+  const orderedIds = payload.orderedIds || [];
+
+  if (!groupId || orderedIds.length === 0) {
+    return { error: "缺少 groupId 或 orderedIds 參數" };
+  }
+
+  const ss = getMySpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_SCHEDULES);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const headers = values[0];
+
+  const colMap = {};
+  headers.forEach((h, idx) => colMap[h] = idx + 1);
+
+  const idCol = colMap['id'] - 1;
+  const groupIdCol = colMap['groupId'] - 1;
+  const tripIdCol = colMap['tripId'] - 1;
+  const altOrderCol = colMap['altOrder'] - 1;
+  const transportTypeCol = colMap['transportType'] - 1;
+  const transportCustomNameCol = colMap['transportCustomName'] - 1;
+  const transportDurationMinutesCol = colMap['transportDurationMinutes'] - 1;
+  const transportRemarkCol = colMap['transportRemark'] - 1;
+
+  // 1. 收集群組內的所有 row
+  const groupRows = [];
+  for (let i = 1; i < values.length; i++) {
+    const rowTripId = String(values[i][tripIdCol]);
+    const rowGroupId = String(values[i][groupIdCol] || values[i][idCol]);
+    const rowId = String(values[i][idCol]);
+
+    if (rowTripId === String(tripId) && rowGroupId === String(groupId)) {
+      groupRows.push({
+        rowIndex: i + 1,
+        id: rowId,
+        altOrder: Number(values[i][altOrderCol]) || 0,
+        transportType: values[i][transportTypeCol] || '',
+        transportCustomName: values[i][transportCustomNameCol] || '',
+        transportDurationMinutes: Number(values[i][transportDurationMinutesCol]) || 0,
+        transportRemark: values[i][transportRemarkCol] || '',
+        rawRow: values[i]
+      });
+    }
+  }
+
+  if (groupRows.length === 0) {
+    return { error: `找不到群組: ${groupId}` };
+  }
+
+  // 2. 判斷主行程是否換人
+  const oldMainRow = groupRows.find(r => r.altOrder === 0) || groupRows[0];
+  const newMainId = String(orderedIds[0]);
+  const isMainChanged = oldMainRow && String(oldMainRow.id) !== newMainId;
+
+  // 取得原主行程的交通資訊
+  const inheritedTransport = {
+    transportType: oldMainRow.transportType,
+    transportCustomName: oldMainRow.transportCustomName,
+    transportDurationMinutes: oldMainRow.transportDurationMinutes,
+    transportRemark: oldMainRow.transportRemark
+  };
+
+  // 3. 建立 id -> newAltOrder 對應表
+  const orderMap = {};
+  orderedIds.forEach((id, idx) => {
+    orderMap[String(id)] = idx;
+  });
+
+  const updatedItems = [];
+
+  // 4. 批次更新 sheet 欄位
+  for (let g = 0; g < groupRows.length; g++) {
+    const r = groupRows[g];
+    const newAlt = orderMap.hasOwnProperty(r.id) ? orderMap[r.id] : r.altOrder;
+
+    // 更新 altOrder
+    sheet.getRange(r.rowIndex, altOrderCol + 1).setValue(newAlt);
+
+    let updatedTransportType = r.transportType;
+    let updatedTransportCustomName = r.transportCustomName;
+    let updatedTransportDurationMinutes = r.transportDurationMinutes;
+    let updatedTransportRemark = r.transportRemark;
+
+    // 若主行程換人：新主行程繼承舊主行程的交通，舊主行程清空交通
+    if (isMainChanged) {
+      if (r.id === newMainId) {
+        updatedTransportType = inheritedTransport.transportType;
+        updatedTransportCustomName = inheritedTransport.transportCustomName;
+        updatedTransportDurationMinutes = inheritedTransport.transportDurationMinutes;
+        updatedTransportRemark = inheritedTransport.transportRemark;
+
+        sheet.getRange(r.rowIndex, transportTypeCol + 1).setValue(updatedTransportType);
+        sheet.getRange(r.rowIndex, transportCustomNameCol + 1).setValue(updatedTransportCustomName);
+        sheet.getRange(r.rowIndex, transportDurationMinutesCol + 1).setValue(updatedTransportDurationMinutes);
+        sheet.getRange(r.rowIndex, transportRemarkCol + 1).setValue(updatedTransportRemark);
+      } else if (r.id === oldMainRow.id) {
+        updatedTransportType = '';
+        updatedTransportCustomName = '';
+        updatedTransportDurationMinutes = 0;
+        updatedTransportRemark = '';
+
+        sheet.getRange(r.rowIndex, transportTypeCol + 1).setValue('');
+        sheet.getRange(r.rowIndex, transportCustomNameCol + 1).setValue('');
+        sheet.getRange(r.rowIndex, transportDurationMinutesCol + 1).setValue(0);
+        sheet.getRange(r.rowIndex, transportRemarkCol + 1).setValue('');
+      }
+    }
+
+    updatedItems.push({
+      id: r.id,
+      groupId: groupId,
+      altOrder: newAlt,
+      transportType: updatedTransportType,
+      transportCustomName: updatedTransportCustomName,
+      transportDurationMinutes: updatedTransportDurationMinutes,
+      transportRemark: updatedTransportRemark
+    });
+  }
+
+  SpreadsheetApp.flush();
+
+  return {
+    success: true,
+    message: "備案順序更新成功",
+    isMainChanged: isMainChanged,
+    updatedItems: updatedItems
+  };
+}
+

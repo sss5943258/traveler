@@ -86,6 +86,9 @@ function doPost(e) {
     case 'updateScheduleOrder':
       if (!isValidEditTripId(payload.tripId)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
       return createJsonResponse(updateScheduleOrder(payload));
+    case 'reorderGroupBackups':
+      if (!isValidEditTripId(payload.tripId)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
+      return createJsonResponse(reorderGroupBackups(payload));
     case 'updateTripInfo':
       if (!isValidEditTripId(payload.tripId)) return createJsonResponse({ status: 'error', message: '無編輯權限' });
       return createJsonResponse(updateTripInfo(payload));

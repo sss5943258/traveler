@@ -179,6 +179,21 @@ export const apiService = {
   },
 
   /**
+   * 改變同一個行程群組內的備案順序與轉正主要行程
+   * @param {string} tripId 旅程 ID
+   * @param {string} groupId 群組 ID
+   * @param {Array<string>} orderedIds 重新排序後的卡片 ID 陣列 (index 0 為新主要行程)
+   */
+  async reorderGroupBackups(tripId, groupId, orderedIds) {
+    return await sendRequest({
+      actionName: 'reorderGroupBackups',
+      path: `/groups/${groupId}/reorder-backups`,
+      method: API_MODE === 'GAS' ? 'POST' : 'PUT',
+      payload: { tripId, groupId, orderedIds }
+    })
+  },
+
+  /**
    * 更新去回程航班或行程備註資訊
    * @param {string} tripId 
    * @param {Object} infoDto { outboundFlightNo..., inbound..., tripRemark }

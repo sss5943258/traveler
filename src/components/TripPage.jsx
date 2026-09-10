@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText, Footprints, Car, Bus, Train, Navigation, ArrowRightLeft } from 'lucide-react'
+import { MapPin, X, Info, Loader, MoreHorizontal, Plus, Pencil, Trash2, Copy, Share2, Plane, Calendar, ArrowDown, ChevronRight, ChevronLeft, FileText, Footprints, Car, Bus, Train, Navigation, ArrowRightLeft, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { message } from 'antd'
 import { DndContext, closestCorners, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -119,7 +120,29 @@ function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
  * 當點擊卡片右上角的「...」時彈出的操作選單，提供「新增備案」、「編輯」、「刪除」選項
  * 採用 React Portal 機制，防止下拉選單被父層 CSS overflow: hidden 遮擋
  */
-function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, showDelete, showAddBackup }) {
+/**
+ * CardMenu 元件 (卡片右上角下拉選單)
+ * 採用 React Portal 機制，防止下拉選單被父層 CSS overflow: hidden 遮擋
+ * 
+ * 分流機制：
+ * - 主要行程 (altOrder === 0)：保留原有選項（新增備案、編輯、複製、移動至其他天、刪除）
+ * - 彈性備案 (altOrder > 0)：移除複製與移動天數，新增「向左移」、「向右移（末位停用）」與「設為主要行程」
+ */
+function CardMenu({
+  item,
+  groupIndex = 0,
+  groupTotal = 1,
+  onEdit,
+  onDelete,
+  onCopy,
+  onAddBackup,
+  onMoveDay,
+  onMoveBackupLeft,
+  onMoveBackupRight,
+  onPromoteToMain,
+  showDelete,
+  showAddBackup
+}) {
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef(null)
@@ -128,6 +151,7 @@ function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, show
   const isCoreFlight = item?.id ? (item.id.startsWith('info-outbound') || item.id.startsWith('info-inbound')) : false
   const actualShowAddBackup = showAddBackup !== undefined ? showAddBackup : !isCoreFlight
   const actualShowDelete = showDelete !== undefined ? showDelete : !isCoreFlight
+  const isBackup = Number(item?.altOrder) > 0
 
   /**
    * handleToggle 點擊切換選單開啟/關閉狀態
@@ -137,7 +161,7 @@ function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, show
     e.stopPropagation()
     if (open) { setOpen(false); return }
     const r = btnRef.current.getBoundingClientRect()
-    setMenuPos({ top: r.bottom + window.scrollY + 6, left: Math.max(4, r.right - 150) })
+    setMenuPos({ top: r.bottom + window.scrollY + 6, left: Math.max(4, r.right - 160) })
     setOpen(true)
   }
 
@@ -164,28 +188,78 @@ function CardMenu({ item, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, show
           className="card-menu-dropdown glass"
           style={{ position: 'absolute', top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
         >
-          {actualShowAddBackup && (
-            <button className="menu-item" onClick={() => { setOpen(false); onAddBackup(item) }}>
-              <Plus size={14} /> 新增備案
-            </button>
-          )}
-          <button className="menu-item" onClick={() => { setOpen(false); onEdit(item) }}>
-            <Pencil size={14} /> {item?.isPlaceholder ? '新增' : '編輯'}
-          </button>
-          {onCopy && (
-            <button className="menu-item" onClick={() => { setOpen(false); onCopy(item) }}>
-              <Copy size={14} /> 複製
-            </button>
-          )}
-          {onMoveDay && (
-            <button className="menu-item" onClick={() => { setOpen(false); onMoveDay(item) }}>
-              <ArrowRightLeft size={14} /> 移動至其他天
-            </button>
-          )}
-          {actualShowDelete && (
-            <button className="menu-item danger" onClick={() => { setOpen(false); onDelete(item) }}>
-              <Trash2 size={14} /> 刪除
-            </button>
+          {isBackup ? (
+            // ── 彈性備案專屬選單項目 ──
+            <>
+              <button
+                className={`menu-item ${groupIndex <= 0 ? 'opacity-40 cursor-not-allowed text-gray-400' : ''}`}
+                disabled={groupIndex <= 0}
+                onClick={() => {
+                  if (groupIndex > 0) {
+                    setOpen(false)
+                    onMoveBackupLeft && onMoveBackupLeft(item)
+                  }
+                }}
+              >
+                <ArrowLeft size={14} /> 向左移
+              </button>
+              <button
+                className={`menu-item ${groupIndex >= groupTotal - 1 ? 'opacity-40 cursor-not-allowed text-gray-400' : ''}`}
+                disabled={groupIndex >= groupTotal - 1}
+                onClick={() => {
+                  if (groupIndex < groupTotal - 1) {
+                    setOpen(false)
+                    onMoveBackupRight && onMoveBackupRight(item)
+                  }
+                }}
+              >
+                <ArrowRight size={14} /> 向右移
+              </button>
+              <button
+                className="menu-item"
+                onClick={() => {
+                  setOpen(false)
+                  onPromoteToMain && onPromoteToMain(item)
+                }}
+              >
+                <CheckCircle2 size={14} /> 設為主要行程
+              </button>
+              <button className="menu-item" onClick={() => { setOpen(false); onEdit(item) }}>
+                <Pencil size={14} /> 編輯
+              </button>
+              {actualShowDelete && (
+                <button className="menu-item danger" onClick={() => { setOpen(false); onDelete(item) }}>
+                  <Trash2 size={14} /> 刪除
+                </button>
+              )}
+            </>
+          ) : (
+            // ── 主要行程卡片選單項目 (維持原有選項) ──
+            <>
+              {actualShowAddBackup && (
+                <button className="menu-item" onClick={() => { setOpen(false); onAddBackup(item) }}>
+                  <Plus size={14} /> 新增備案
+                </button>
+              )}
+              <button className="menu-item" onClick={() => { setOpen(false); onEdit(item) }}>
+                <Pencil size={14} /> {item?.isPlaceholder ? '新增' : '編輯'}
+              </button>
+              {onCopy && (
+                <button className="menu-item" onClick={() => { setOpen(false); onCopy(item) }}>
+                  <Copy size={14} /> 複製
+                </button>
+              )}
+              {onMoveDay && (
+                <button className="menu-item" onClick={() => { setOpen(false); onMoveDay(item) }}>
+                  <ArrowRightLeft size={14} /> 移動至其他天
+                </button>
+              )}
+              {actualShowDelete && (
+                <button className="menu-item danger" onClick={() => { setOpen(false); onDelete(item) }}>
+                  <Trash2 size={14} /> 刪除
+                </button>
+              )}
+            </>
           )}
         </div>,
         document.body
@@ -253,7 +327,23 @@ function ShareMenu({ onShareLink, onShareText, onShareCSV }) {
  * Card 元件 (單個行程卡片)
  * 渲染行程名稱、起訖時間、備註圖示，並處理點選卡片觸發的 callback
  */
-function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, isReadOnly, isActive }) {
+function Card({
+  item,
+  groupIndex = 0,
+  groupTotal = 1,
+  onClick,
+  onMap,
+  onEdit,
+  onDelete,
+  onCopy,
+  onAddBackup,
+  onMoveDay,
+  onMoveBackupLeft,
+  onMoveBackupRight,
+  onPromoteToMain,
+  isReadOnly,
+  isActive
+}) {
   const hasTime = Boolean((item.startTime && item.startTime.trim() !== '') || (item.endTime && item.endTime.trim() !== ''))
 
   return (
@@ -277,7 +367,21 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onM
           >
             <MapPin size={18} />
           </button>
-          {!isReadOnly && <CardMenu item={item} onEdit={onEdit} onDelete={onDelete} onCopy={onCopy} onAddBackup={onAddBackup} onMoveDay={onMoveDay} />}
+          {!isReadOnly && (
+            <CardMenu
+              item={item}
+              groupIndex={groupIndex}
+              groupTotal={groupTotal}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onCopy={onCopy}
+              onAddBackup={onAddBackup}
+              onMoveDay={onMoveDay}
+              onMoveBackupLeft={onMoveBackupLeft}
+              onMoveBackupRight={onMoveBackupRight}
+              onPromoteToMain={onPromoteToMain}
+            />
+          )}
         </div>
       </div>
       <h3 className="attraction-name">{item.attractionName}</h3>
@@ -292,8 +396,28 @@ function Card({ item, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onM
 /**
  * SortableGroup 元件
  * 用於排序列表中的 Dnd-Kit 排序群組包裹元件，處理橫向彈性備案滑動與拖曳排程
+ * 
+ * [React 觀念解析 - Props 屬性傳遞與解構 (Props Destructuring)]
+ * 在 React 中，父元件傳遞給子元件的屬性與回呼函式（如 onMoveBackupLeft、onMoveBackupRight、onPromoteToMain）
+ * 必須在子元件的函式參數列表中明確列出並解構，這樣元件內部的程式碼才能直接存取這些變數。
+ * 若漏寫解構，在執行時存取該變數就會拋出 JavaScript 的「ReferenceError: xxx is not defined」。
  */
-function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCopy, onAddBackup, onMoveDay, isReadOnly, activeItemId }) {
+function SortableGroup({
+  id,
+  groupItems,
+  onClick,
+  onMap,
+  onEdit,
+  onDelete,
+  onCopy,
+  onAddBackup,
+  onMoveDay,
+  onMoveBackupLeft,
+  onMoveBackupRight,
+  onPromoteToMain,
+  isReadOnly,
+  activeItemId
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const containerRef = useRef(null)
   const scrollRef = useRef(null)
@@ -449,6 +573,8 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCop
           <div key={item.id} className="card-wrapper w-full">
             <Card
               item={item}
+              groupIndex={idx}
+              groupTotal={groupItems.length}
               isActive={activeItemId === item.id}
               onClick={() => onClick(item)}
               onMap={(e) => onMap(e, item)}
@@ -457,6 +583,21 @@ function SortableGroup({ id, groupItems, onClick, onMap, onEdit, onDelete, onCop
               onCopy={() => onCopy && onCopy(item)}
               onAddBackup={() => onAddBackup(item)}
               onMoveDay={() => onMoveDay && onMoveDay(item)}
+              onMoveBackupLeft={(it) => {
+                onMoveBackupLeft && onMoveBackupLeft(it, () => {
+                  scrollToIndex(Math.max(0, idx - 1))
+                })
+              }}
+              onMoveBackupRight={(it) => {
+                onMoveBackupRight && onMoveBackupRight(it, () => {
+                  scrollToIndex(Math.min(groupItems.length - 1, idx + 1))
+                })
+              }}
+              onPromoteToMain={(it) => {
+                onPromoteToMain && onPromoteToMain(it, () => {
+                  scrollToIndex(0)
+                })
+              }}
               isReadOnly={isReadOnly}
             />
           </div>
@@ -757,6 +898,147 @@ export default function TripPage({ tripId, onBack }) {
     } catch (err) {
       console.error('複製行程失敗:', err)
       alert('複製行程失敗，請稍後再試：' + (err.message || err))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  /**
+   * handleMoveBackup 處理備案左右換位 (向左移 或 向右移)
+   * 
+   * 當使用者在備案卡片選單點擊「向左移」或「向右移」時觸發：
+   * 1. 找到同群組的所有卡片並克隆陣列
+   * 2. 進行兩兩索引位置對調 (Swap)
+   * 3. 判斷對調後 index 0 的卡片 ID 是否變動 (若變動代表主要行程換人)
+   * 4. 呼叫後端 API reorderGroupBackups 進行資料庫儲存與交通資訊移轉
+   * 5. 若主要行程變動，彈出 Ant Design message.success 提示提醒使用者檢視時間與交通
+   * 6. 完成後觸發 onDone 回呼，平滑滾動至卡片最新位置
+   * 
+   * @param {Object} item 被移動的備案項目物件
+   * @param {'left'|'right'} direction 移動方向
+   * @param {Function} onDone 完成後觸發的回呼函式
+   */
+  const handleMoveBackup = async (item, direction, onDone) => {
+    const gid = item.groupId || item.id
+    const targetGroup = scheduleGroups.find(g => g.id === gid)
+    if (!targetGroup || targetGroup.items.length <= 1) return
+
+    const items = [...targetGroup.items]
+    const currentIndex = items.findIndex(i => i.id === item.id)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= items.length) return
+
+    // 兩兩調換位置
+    const temp = items[currentIndex]
+    items[currentIndex] = items[targetIndex]
+    items[targetIndex] = temp
+
+    // 檢查主行程是否有被變更 (index 0 的卡片 ID 是否變動)
+    const isMainChanged = items[0].id !== targetGroup.items[0].id
+
+    setActionLoading('調整備案順序中...')
+    try {
+      const orderedIds = items.map(i => i.id)
+      const res = await apiService.reorderGroupBackups(tripId, gid, orderedIds)
+
+      // 取得後端回傳更新後的卡片清單 (含 altOrder 與可能轉移的交通資訊)
+      const updatedMap = new Map()
+      if (res?.updatedItems && Array.isArray(res.updatedItems)) {
+        res.updatedItems.forEach(u => updatedMap.set(u.id, u))
+      } else {
+        // Fallback: 若後端未回傳 updatedItems，前端直接以 orderedIds 賦予 altOrder
+        items.forEach((it, idx) => {
+          updatedMap.set(it.id, { ...it, altOrder: idx })
+        })
+      }
+
+      setJourneys(prev => prev.map(j => {
+        if (j.day === item.day) {
+          const newSchedule = (j.schedule || []).map(si => {
+            if (updatedMap.has(si.id)) {
+              return { ...si, ...updatedMap.get(si.id) }
+            }
+            return si
+          })
+          return { ...j, schedule: newSchedule }
+        }
+        return j
+      }))
+
+      if (isMainChanged) {
+        message.success('主行程被變更了, 記得調整交通方式與時間喔')
+      }
+
+      if (onDone) onDone()
+    } catch (err) {
+      console.error('調整備案順序失敗:', err)
+      message.error('調整備案順序失敗：' + (err.message || err))
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  /**
+   * handlePromoteToMain 處理備案轉為主要行程 (插至首位 Shift to Front)
+   * 
+   * 當使用者在備案卡片選單點擊「設為主要行程」時觸發：
+   * 1. 找到同群組卡片，將當前備案自原陣列移出並插至第 1 位 (index 0)
+   * 2. 其餘原主行程與備案依序向後順延 (例如 [M, B1, B2] ➔ [B2, M, B1])
+   * 3. 呼叫後端 API reorderGroupBackups 進行批次更新
+   * 4. 成功後彈出 Ant Design message.success('主行程被變更了, 記得調整交通方式與時間喔')
+   * 5. 畫面自動平滑滾動至第 1 項以聚焦新主行程
+   * 
+   * @param {Object} item 被晉升為主要行程的備案卡片物件
+   * @param {Function} onDone 完成後觸發的回呼函式
+   */
+  const handlePromoteToMain = async (item, onDone) => {
+    const gid = item.groupId || item.id
+    const targetGroup = scheduleGroups.find(g => g.id === gid)
+    if (!targetGroup || targetGroup.items.length <= 1) return
+
+    const items = [...targetGroup.items]
+    const currentIndex = items.findIndex(i => i.id === item.id)
+    if (currentIndex <= 0) return // 已經是主要行程
+
+    // 將該卡片移出並插至首位 (Shift to Front)
+    const [promotedItem] = items.splice(currentIndex, 1)
+    items.unshift(promotedItem)
+
+    setActionLoading('設為主要行程中...')
+    try {
+      const orderedIds = items.map(i => i.id)
+      const res = await apiService.reorderGroupBackups(tripId, gid, orderedIds)
+
+      const updatedMap = new Map()
+      if (res?.updatedItems && Array.isArray(res.updatedItems)) {
+        res.updatedItems.forEach(u => updatedMap.set(u.id, u))
+      } else {
+        items.forEach((it, idx) => {
+          updatedMap.set(it.id, { ...it, altOrder: idx })
+        })
+      }
+
+      setJourneys(prev => prev.map(j => {
+        if (j.day === item.day) {
+          const newSchedule = (j.schedule || []).map(si => {
+            if (updatedMap.has(si.id)) {
+              return { ...si, ...updatedMap.get(si.id) }
+            }
+            return si
+          })
+          return { ...j, schedule: newSchedule }
+        }
+        return j
+      }))
+
+      message.success('主行程被變更了, 記得調整交通方式與時間喔')
+
+      if (onDone) onDone()
+    } catch (err) {
+      console.error('設為主要行程失敗:', err)
+      message.error('設為主要行程失敗：' + (err.message || err))
     } finally {
       setActionLoading(null)
     }
@@ -1383,6 +1665,9 @@ export default function TripPage({ tripId, onBack }) {
                               onCopy={handleCopySchedule}
                               onAddBackup={handleAddBackup}
                               onMoveDay={(it) => setMoveModalItem(it)}
+                              onMoveBackupLeft={(it, onDone) => handleMoveBackup(it, 'left', onDone)}
+                              onMoveBackupRight={(it, onDone) => handleMoveBackup(it, 'right', onDone)}
+                              onPromoteToMain={(it, onDone) => handlePromoteToMain(it, onDone)}
                               isReadOnly={isReadOnly}
                             />
                             {/* 卡片之間的連接交通箭頭 */}
