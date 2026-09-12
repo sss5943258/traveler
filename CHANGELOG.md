@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-09-12
+
+### Added
+- **Google OAuth 2.0 完整身分認證系統 (Google OAuth 2.0 Authentication System)**：
+  - **前端登入與權限保護路由 (`LoginPage.jsx`, `ProtectedRoute.jsx`, `authStore.js`)**：
+    - 整合 Google Identity Services (GSI) Client SDK，提供一鍵 Google 帳號登入體驗。
+    - 採用 Zustand 狀態管理庫實作 `authStore`，支援 Token 自動無感刷新（Silent Refresh）與持久化機制。
+    - 建立 `ProtectedRoute` 元件，攔截未登入或過期訪問並優雅導向登入頁面。
+  - **後端 Google Apps Script 認證服務 (`backend/AuthService.gs`)**：
+    - 實作 `handleLogin`、`handleRefreshToken` 與 `handleLogout`。
+    - 透過 Google TokenInfo API 校驗 Google ID Token，自動建立或維護 `Users` 工作表與 `Sessions` 工作表。
+- **Google Sheet 多使用者資料隔離機制 (Multi-User Data Isolation)**：
+  - **資料庫欄位擴充與防呆自動補齊 (`Trips`, `PackingItems`, `Until.gs`)**：
+    - `Trips` 工作表新增 `userId` 欄位（標記行程擁有者）與 `readOnlyId`（安全唯讀分享短代碼）。
+    - `PackingItems` 工作表新增 `userId` 欄位（標記個人專屬攜帶清單）。
+    - 於 `Until.gs` 實作 `ensureSheetHeaders` 函式，程式運行時自動檢查並補齊缺失欄位，免去手動維護試算表負擔。
+  - **歷史舊資料無痛自動認領遷移機制 (`TripsService.gs`, `InitData.gs`)**：
+    - 登入查詢旅程時，自動掃描並將未標記 `userId` 的舊測試資料綁定至當前登入者，確保升級後既有行程無痛繼承。
+    - 於 `InitData.gs` 額外提供 `migrateLegacyDataToUser` 手動遷移工具腳本。
+  - **嚴密後端擁有者權限守門 (`backend/Main.gs`, `TripsService.gs`)**：
+    - GET 請求（`getTrips`、`getPackingItems`）強制依登入者 `userId` 進行過濾隔離。
+    - 所有寫入、更新與刪除操作（`createSchedule`、`updateSchedule`、`deleteSchedule`、`updateTripInfo`、`uploadTripImage`、`deleteTrip` 等）全面驗證是否為該行程之 Owner，杜絕越權篡改。
+    - 行程詳情（`getTripDetails`）支援雙軌分流：真實 `tripId` 需為 Owner，`readOnlyId` 則提供訪客唯讀瀏覽。
+  - **個人行李清單專屬服務模組 (`backend/PackingItemsService.gs`)**：
+    - 新增獨立服務模組，完整支援 `getUserPackingItems`、`addPackingItem`、`togglePackingItem` 與 `deletePackingItem`，並落實 `userId` 資料隔離。
+  - **旅程級聯刪除實作 (`TripsService.gs`)**：
+    - 實作 `deleteTrip`，刪除旅程時連帶清理 `Trips_Info` 與 `Schedules` 的所有關聯列。
+
+### Changed
+- **前端快取策略調整：全面停用 sessionStorage 快取 (`src/utils/api.js`)**：
+  - 移除 GET 請求對 `sessionStorage` 的寫入與讀取，確保每次進入首頁清單或旅程詳情皆向後端發起即時 API 請求，取得試算表最新現況。
+  - 載入時自動清理瀏覽器歷史殘留的 `api_cache_` 項目。
+  - 保留微毫秒級併發請求去重機制 (`_inflightRequests`)，防止 React StrictMode 重複發送相同請求。
+- **首頁錯誤提示體驗優化 (`HomePage.jsx`)**：
+  - 將原本覆蓋全螢幕的「讀取失敗」畫面改為 Header 下方的輕量級 Warning Banner，在 API 連線異常時仍保留攜帶清單與新增旅程等功能按鈕操作。
+- **GAS 後端部署進入點更新 (`src/config.js`)**：
+  - 更新 `API_URL_GAS` 至最新發布之 Web App 部署端點。
+
+---
+
 ## [0.8.5] - 2026-09-11
 
 ### Changed

@@ -1,3 +1,6 @@
+/**
+ * 初始化測試資料（重置 Trips 與 Schedules）
+ */
 function initDualMockData() {
   try {
     const ss = getMySpreadsheet();
@@ -5,18 +8,17 @@ function initDualMockData() {
 
     try {
       let tripsSheet = ss.getSheetByName(SHEET_TRIPS);
-      // 如果已經存在，直接暴力刪除重建，避免舊格式或凍結窗格造成 Unexpected error
       if (tripsSheet) ss.deleteSheet(tripsSheet);
       tripsSheet = ss.insertSheet(SHEET_TRIPS);
 
-      const tripsHeaders = ['tripId', 'name', 'startDate', 'endDate', 'coverUrl'];
+      const tripsHeaders = ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId'];
       tripsSheet.appendRow(tripsHeaders);
 
-  const tripRows = [
-    ['t-1', '🇯🇵 2026 大阪京都賞櫻季', '2026-04-01', '2026-04-05', 'https://images.unsplash.com/photo-149397604037.......'],
-    ['t-2', '🗼 2027 東京市區吃貨團', '2027-10-10', '2027-10-15', 'https://images.unsplash.com/photo-1542931287......'],
-    ['t-3', '🌸 2026 京阪名古屋大拇指櫻花季', '2026-04-04', '2026-04-12', 'https://images.unsplash.com/photo-1522273400909-fd1a8f77637e'],
-  ];
+      const tripRows = [
+        ['t-1', '🇯🇵 2026 大阪京都賞櫻季', '2026-04-01', '2026-04-05', 'https://images.unsplash.com/photo-149397604037.......', 'share-t1', ''],
+        ['t-2', '🗼 2027 東京市區吃貨團', '2027-10-10', '2027-10-15', 'https://images.unsplash.com/photo-1542931287......', 'share-t2', ''],
+        ['t-3', '🌸 2026 京阪名古屋大拇指櫻花季', '2026-04-04', '2026-04-12', 'https://images.unsplash.com/photo-1522273400909-fd1a8f77637e', 'share-t3', ''],
+      ];
       tripsSheet.getRange(2, 1, tripRows.length, tripsHeaders.length).setNumberFormat('@').setValues(tripRows);
       Logger.log("Trips 初始化成功");
     } catch(e) {
@@ -169,3 +171,57 @@ function initDualMockData() {
     throw e; // 依舊將錯誤拋出，才能在錯誤訊息視窗看到
   }
 }
+
+/**
+ * 手動維護腳本：檢查並自動為所有相關工作表補齊缺少的表頭欄位
+ * 可以在 GAS 編輯器中直接選取並執行一次
+ */
+function ensureAllTablesHeaders() {
+  ensureSheetHeaders(SHEET_TRIPS, ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId']);
+  ensureSheetHeaders(SHEET_PACKING_ITEMS, ['itemId', 'name', 'isEssential', 'checked', 'userId']);
+  Logger.log("所有工作表表頭檢查與補齊完成！");
+}
+
+/**
+ * 手動遷移工具：將試算表中尚未填入 userId 的舊行程與舊行李清單批次綁定給特定使用者
+ * @param {string} targetUserId - 目標使用者 ID（例如 'user_12345'）
+ */
+function migrateLegacyDataToUser(targetUserId) {
+  if (!targetUserId) {
+    Logger.log("請傳入有效的 targetUserId！");
+    return;
+  }
+  
+  const ss = getMySpreadsheet();
+
+  // 1. 遷移 Trips
+  const tripsSheet = ensureSheetHeaders(SHEET_TRIPS, ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId']);
+  const tripsValues = tripsSheet.getDataRange().getValues();
+  const tripsHeaders = tripsValues[0].map(String);
+  const tripUserIdCol = tripsHeaders.indexOf('userId');
+  let tripsCount = 0;
+
+  for (let i = 1; i < tripsValues.length; i++) {
+    if (!tripsValues[i][tripUserIdCol]) {
+      tripsSheet.getRange(i + 1, tripUserIdCol + 1).setValue(targetUserId);
+      tripsCount++;
+    }
+  }
+
+  // 2. 遷移 PackingItems
+  const packingSheet = ensureSheetHeaders(SHEET_PACKING_ITEMS, ['itemId', 'name', 'isEssential', 'checked', 'userId']);
+  const packingValues = packingSheet.getDataRange().getValues();
+  const packingHeaders = packingValues[0].map(String);
+  const packingUserIdCol = packingHeaders.indexOf('userId');
+  let packingCount = 0;
+
+  for (let i = 1; i < packingValues.length; i++) {
+    if (!packingValues[i][packingUserIdCol]) {
+      packingSheet.getRange(i + 1, packingUserIdCol + 1).setValue(targetUserId);
+      packingCount++;
+    }
+  }
+
+  SpreadsheetApp.flush();
+  Logger.log(`舊資料遷移完成！已成功將 ${tripsCount} 個行程與 ${packingCount} 個行李項目綁定至使用者: ${targetUserId}`);
+}

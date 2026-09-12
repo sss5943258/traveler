@@ -256,18 +256,8 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
     )
   }
 
-  // 2. 錯誤顯示畫面
-  if (error) {
-    return (
-      <div className="loading-screen-full">
-        <div className="loading-content-box">
-          <h2 className="loading-title text-2xl">讀取失敗 🥲</h2>
-          <p className="loading-subtitle">{error}</p>
-        </div>
-      </div>
-    )
-  }
-
+  // 2. 錄取失敗 → 不全頁覆蓋，就地顯示 warning banner（不要防礙使用者縼續創建行程）
+  // error 穿透到下方正常第 3 區塊一起渲染
   // 3. 正常首頁畫面
   return (
     <div className="home-container">
@@ -277,6 +267,20 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
           <h1 className="home-title">我的旅遊計畫</h1>
           <p className="home-subtitle">選擇一趟旅程開始吧！</p>
         </header>
+
+        {/* 行程讀取失敗提示（API 異常才顯示，不阻止使用者繼續操作）*/}
+        {error && (
+          <div
+            className="mx-4 mb-2 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+            style={{
+              background: 'rgba(234, 179, 8, 0.08)',
+              border: '1px solid rgba(234, 179, 8, 0.25)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            ⚠️ 行程讀取失敗，可能是網路問題。你仍可新增行程或使用攜帶清單。
+          </div>
+        )}
 
         {/* 固定區：旅行攜帶清單入口 */}
         <div className="home-fixed-top">

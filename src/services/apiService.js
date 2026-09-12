@@ -1,5 +1,6 @@
 import { API_MODE, API_URL_GAS, API_URL_NET_CORE } from '../config'
-import { cachedFetch } from '../utils/api'
+import { cachedFetch, getAuthHeaders } from '../utils/api'
+import { useAuthStore } from '../stores/authStore'
 
 /**
  * apiService 服務層模組 (API Adapter Service Layer)
@@ -7,29 +8,45 @@ import { cachedFetch } from '../utils/api'
  * 採用 Adapter Pattern (適配器模式) 與 Strategy Pattern (策略模式)。
  * 第一層 React 元件僅傳遞統一的 DTO，本模組會根據 `config.js` 的 `API_MODE` 
  * 自動轉化為 Google Apps Script (GAS) 載荷或 ASP.NET Core RESTful API 請求。
+ * 
+ * 認證機制：
+ * - GAS 模式：accessToken 放在 POST body 的 token 欄位（CORS 不允許自訂 header）
+ * - NET_CORE 模式：accessToken 放在 Authorization: Bearer <token> header
  */
 
 // 取得目前的 API URL 進入點
 const getBaseUrl = () => (API_MODE === 'GAS' ? API_URL_GAS : API_URL_NET_CORE)
 
+
 /**
  * 通用 Fetch 請求發送器 (支援 GAS 與 RESTful 自動適配)
+ * 
+ * GAS 模式：token 放在 body（因為 GAS CORS preflight 不允許自訂 header）
+ * NET_CORE 模式：token 放在 Authorization: Bearer header
  */
 async function sendRequest({ path = '', method = 'GET', payload = null, actionName = '' }) {
   const url = getBaseUrl()
   const isGas = API_MODE === 'GAS'
 
+  // 取得目前有效的 accessToken（若快過期會自動觸發 refresh）
+  // 若 refresh 失敗則 throw AUTH_EXPIRED，由 ProtectedRoute 接手跳回登入頁
+  const authHeaders = await getAuthHeaders({ 'Content-Type': 'application/json' })
+  const accessToken = useAuthStore.getState().accessToken
+
   if (isGas) {
     // ── GAS 模式策略 ──
     if (method.toUpperCase() === 'GET') {
-      const queryUrl = `${url}?action=${actionName}${path ? `&${path}` : ''}`
+      // GAS GET：token 放在 query string（因為 GET 沒有 body）
+      const tokenParam = accessToken ? `&token=${encodeURIComponent(accessToken)}` : ''
+      const queryUrl = `${url}?action=${actionName}${path ? `&${path}` : ''}${tokenParam}`
       const res = await cachedFetch(queryUrl)
       if (!res.ok) throw new Error(`[GAS API 錯誤] HTTP ${res.status}`)
       return await res.json()
     } else {
-      // POST 傳送帶 action 的 JSON Payload
+      // GAS POST：token 放在 body 的 token 欄位
       const bodyPayload = JSON.stringify({
         action: actionName,
+        token: accessToken,  // GAS 後端從 body 取 token 驗證
         ...payload
       })
       const res = await cachedFetch(url, {
@@ -55,7 +72,7 @@ async function sendRequest({ path = '', method = 'GET', payload = null, actionNa
     const targetUrl = `${url}${path.startsWith('/') ? path : `/${path}`}`
     const options = {
       method: method.toUpperCase(),
-      headers: { 'Content-Type': 'application/json' }
+      headers: authHeaders,  // 含 Authorization: Bearer <token>
     }
 
     if (payload && options.method !== 'GET') {
@@ -72,6 +89,7 @@ async function sendRequest({ path = '', method = 'GET', payload = null, actionNa
     return await res.json()
   }
 }
+
 
 export const apiService = {
   /**
