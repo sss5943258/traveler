@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2026-09-12
+
+### Added
+- **全套應用程式圖示與 Favicon 煥新 (PWA & Web App Icons Refactor)**：
+  - **視覺統一與品牌對齊**：底色全面改用專案標準背景色（`#FAF8F5` 暖象牙白），並置中採用專案官方 Lucide 飛機線條圖標（`#583f24` 深木褐），比例為 52% 寬高，視覺留白均勻俐落。
+  - **多平台圖示規格完整輸出**：
+    - `icon.png` (512x512 高解析預覽圖)
+    - `public/pwa-512x512.png` & `public/pwa-192x192.png` (Android / PWA 桌面與啟動圖示)
+    - `public/apple-touch-icon.png` (180x180 iOS 主畫面專用圖示)
+    - `public/favicon.ico` (64x64 標準 ICO 檔案，修復部分瀏覽器預設抓取顯示為地球圖案的問題)
+    - `public/favicon.png` (64x64 PNG 頁籤圖示)
+    - `public/favicon.svg` (SVG 向量檔)
+  - **瀏覽器快取與 PWA 設定優化 (`index.html`, `vite.config.js`)**：
+    - 在 `index.html` 的 Favicon 連結加上版本快取破壞參數（`?v=2`），確保瀏覽器即時反映最新圖示。
+    - 在 `vite.config.js` 的 `includeAssets` 補齊 `favicon.ico` 與 `favicon.png` 宣告。
+
+---
+
 ## [0.9.0] - 2026-09-12
 
 ### Added
@@ -10,9 +28,15 @@ All notable changes to this project will be documented in this file.
     - 整合 Google Identity Services (GSI) Client SDK，提供一鍵 Google 帳號登入體驗。
     - 採用 Zustand 狀態管理庫實作 `authStore`，支援 Token 自動無感刷新（Silent Refresh）與持久化機制。
     - 建立 `ProtectedRoute` 元件，攔截未登入或過期訪問並優雅導向登入頁面。
+    - **登入頁視覺與體驗優化 (`LoginPage.jsx`)**：色調全面對齊內頁暖象牙白（`#FAF8F5`）與柔光毛玻璃卡片，標題正式更新為 `Traveler`，將登入中的 Loading 改配置於 Google 按鈕正下方並結合 Ant Design `Spin`。
   - **後端 Google Apps Script 認證服務 (`backend/AuthService.gs`)**：
     - 實作 `handleLogin`、`handleRefreshToken` 與 `handleLogout`。
     - 透過 Google TokenInfo API 校驗 Google ID Token，自動建立或維護 `Users` 工作表與 `Sessions` 工作表。
+  - **首頁右上角登出按鈕與確認彈窗 (`HomePage.jsx`, `LogoutConfirmModal.jsx`)**：
+    - 在首頁卡片 Header 右上角配置自適應定位之毛玻璃圓形 `LogOut` 圖示按鈕。
+    - 採用與專案既有 `DeleteConfirmModal` 一致的置中全螢幕毛玻璃遮罩 Modal（`LogoutConfirmModal`），具備深木褐品牌操作按鈕（`btn-save`）與 Loading 狀態防呆。
+    - 搭配 Ant Design `Tooltip` 懸停顯示當前登入者名稱與 Email。
+    - 點擊確認後呼叫後端徹底刪除 Sessions 工作表的 Session 紀錄，並同步重置 Zustand `authStore` 狀態，安全導向登入頁面。
 - **Google Sheet 多使用者資料隔離機制 (Multi-User Data Isolation)**：
   - **資料庫欄位擴充與防呆自動補齊 (`Trips`, `PackingItems`, `Until.gs`)**：
     - `Trips` 工作表新增 `userId` 欄位（標記行程擁有者）與 `readOnlyId`（安全唯讀分享短代碼）。

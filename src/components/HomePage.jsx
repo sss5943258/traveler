@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2, LogOut } from 'lucide-react'
+import { message } from 'antd'
 import { apiService } from '../services/apiService'
+import { useAuthStore } from '../stores/authStore'
+import { logoutFromServer } from '../services/authService'
 import NewTripModal from './NewTripModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import LogoutConfirmModal from './LogoutConfirmModal'
 import './HomePage.css'
 
 // ─── 單個可左滑的行程項目 ───────────────────────────────────────
@@ -190,6 +194,39 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
   // deletingTrip 狀態：儲存當下正準備進行刪除確認的行程物件
   const [deletingTrip, setDeletingTrip] = useState(null)
 
+  // isLoggingOut 狀態：標記是否正在執行後端登出請求
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  // showLogoutModal 狀態：控制「確認登出」彈出視窗的顯示與隱藏
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+
+  // 取得目前全域登入狀態與登出方法
+  const user = useAuthStore((state) => state.user)
+  const accessToken = useAuthStore((state) => state.accessToken)
+  const logout = useAuthStore((state) => state.logout)
+
+  /**
+   * handleLogout 登出處理函式
+   * 向後端發送登出 API 請求，徹底清除 Sessions 資料表中的登入紀錄，
+   * 完成後清除本機授權狀態並自動導向登入頁
+   */
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      if (accessToken) {
+        // 等待後端 API 完成資料庫 Session 刪除
+        await logoutFromServer(accessToken)
+      }
+      logout()
+      message.success('已成功清除登入資訊並登出')
+    } catch (err) {
+      console.error('[HomePage] 後端登出請求失敗:', err)
+      // 即使後端連線異常，亦安全清除本地 Token 避免卡死
+      logout()
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   /**
    * fetchTrips 非同步資料取得函式
    * 向 GAS 請求行程列表，GAS 沒有傳統的 RESTful 路由，
@@ -263,6 +300,16 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
     <div className="home-container">
       <div className="home-inner">
         <header className="home-header">
+          {/* 右上角登出按鈕：點擊開啟專案統一風格之 LogoutConfirmModal */}
+          <button
+            type="button"
+            className="home-logout-btn group"
+            onClick={() => setShowLogoutModal(true)}
+            aria-label="登出"
+          >
+            <LogOut size={18} className="transition-transform group-hover:scale-110" />
+          </button>
+
           <Plane size={28} className="home-logo-icon" />
           <h1 className="home-title">我的旅遊計畫</h1>
           <p className="home-subtitle">選擇一趟旅程開始吧！</p>
@@ -342,6 +389,19 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
           onClose={() => setDeletingTrip(null)}
           onConfirm={handleDeleteConfirm}
           onDeleted={handleDeletedDone}
+        />
+      )}
+
+      {/* 專案統一風格的登出確認彈跳視窗 */}
+      {showLogoutModal && (
+        <LogoutConfirmModal
+          onClose={() => setShowLogoutModal(false)}
+          onConfirm={async () => {
+            await handleLogout()
+            setShowLogoutModal(false)
+          }}
+          isLoggingOut={isLoggingOut}
+          user={user}
         />
       )}
     </div>

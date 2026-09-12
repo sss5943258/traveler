@@ -200,29 +200,35 @@ function handleRefreshToken(payload) {
   throw new Error('REFRESH_TOKEN_NOT_FOUND');
 }
 
-// ============================================
-// 【Action】logout
-// 將 Session 標記為已撤銷，token 立即失效
-// @param {Object} payload - { accessToken }
-// ============================================
+/**
+ * 【Action】logout
+ * 從 Sessions 工作表徹底清除（刪除）該登入 Session 資料，使 Token 與 Session 立即失效
+ * @param {Object} payload - { accessToken }
+ * @returns {Object} 執行結果
+ */
 function handleLogout(payload) {
   const { accessToken } = payload;
-  if (!accessToken) return { status: 'success' }; // 沒帶 token 也視為登出成功
+  if (!accessToken) return { status: 'success', message: '已完成登出' };
 
   const sheet = getSessionsSheet();
-  if (!sheet) return { status: 'success' };
+  if (!sheet) return { status: 'success', message: '已完成登出' };
 
   const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { status: 'success', message: '已完成登出' };
+
   const headers = data[0];
   const colOf = (name) => headers.indexOf(name);
+  const tokenColIdx = colOf('accessToken');
 
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][colOf('accessToken')]) === String(accessToken)) {
-      sheet.getRange(i + 1, colOf('isRevoked') + 1).setValue(true);
+  // 從後往前搜尋並刪除目標 Session 列，徹底清除資料庫中的登入紀錄
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][tokenColIdx]) === String(accessToken)) {
+      sheet.deleteRow(i + 1);
       SpreadsheetApp.flush();
+      Logger.log(`[handleLogout] 已成功清除 Session: ${accessToken}`);
       break;
     }
   }
 
-  return { status: 'success', message: '已成功登出' };
+  return { status: 'success', message: '已成功清除登入資訊並登出' };
 }
