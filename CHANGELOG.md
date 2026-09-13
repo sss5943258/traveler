@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2026-09-13
+
+### Fixed
+- **GitHub Pages 部署環境 Google OAuth 2.0 授權缺失修復 (`src/config.js`)**：
+  - 修復 GitHub Pages 站台進行 Google 登入時跳出 `400 invalid_request (Missing required parameter: client_id)` 的問題。
+  - 在 `src/config.js` 補充生產環境 Google Client ID 預設備援（Fallback），避免因 CI/CD 構建環境未預設注入 `.env` 變數導致前端打包出空字串，確保 GitHub Pages 靜態網站可正常觸發 Google OAuth 2.0 授權登入。
+
+---
+
 ## [0.9.1] - 2026-09-12
 
 ### Added
