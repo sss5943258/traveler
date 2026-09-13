@@ -19,6 +19,4 @@ export const API_URL = API_MODE === 'GAS' ? API_URL_GAS : API_URL_NET_CORE;
  * 從 .env 的 VITE_GOOGLE_CLIENT_ID 讀取
  * 需在 Google Cloud Console 建立 OAuth 2.0 用戶端 ID (應用程式類型: Web 應用程式)
  */
-export const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  '18017695333-i0v1r4ehar0ec80drh7lqs4a0v50f38h.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
