@@ -142,6 +142,47 @@ export const apiService = {
   },
 
   /**
+   * 取得特定旅程的共編者名單與擁有者資訊
+   * @param {string} tripId 旅程 ID
+   * @returns {Promise<Object>} { status, tripName, owner, collaborators }
+   */
+  async getCollaborators(tripId) {
+    return await sendRequest({
+      actionName: 'getCollaborators',
+      path: `tripId=${encodeURIComponent(tripId)}`,
+      method: 'GET'
+    })
+  },
+
+  /**
+   * 新增共編者 (輸入 Google Email)
+   * @param {string} tripId 旅程 ID
+   * @param {string} email 共編者 Email
+   * @returns {Promise<Object>} 執行結果
+   */
+  async addCollaborator(tripId, email) {
+    return await sendRequest({
+      actionName: 'addCollaborator',
+      method: 'POST',
+      payload: { tripId, email }
+    })
+  },
+
+  /**
+   * 移除共編者
+   * @param {string} tripId 旅程 ID
+   * @param {string} email 要移除的共編者 Email
+   * @returns {Promise<Object>} 執行結果
+   */
+  async removeCollaborator(tripId, email) {
+    return await sendRequest({
+      actionName: 'removeCollaborator',
+      method: 'POST',
+      payload: { tripId, email }
+    })
+  },
+
+  /**
    * 新增行程卡片或彈性備案
    * @param {Object} scheduleDto { tripId, day, date, groupId, altOrder, attractionName, startTime, endTime, remark, googleMapLink }
    */

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-09-14
+
+### Added
+- **旅程多人共編功能 (Trip Collaboration System)**：
+  - **後端 Google Apps Script 架構升級 (`backend/`)**：
+    - 新增 `Trip_Collaborators` 工作表（`SHEET_TRIP_COLLABORATORS`），記錄 `tripId`, `userEmail`, `userId`, `role`, `createdAt`。
+    - 於 `TripsService.gs` 實作共編核心函式：`getTripCollaborators`、`addTripCollaborator`、`removeTripCollaborator`、`isTripCollaborator`。
+    - **支援未註冊使用者延遲綁定 (Lazy Linking)**：邀請共編者時透過 Google Email 綁定，即使受邀者尚未登入過系統亦能先行加入，登入時後端自動完成 `userId` 關聯。
+    - **多使用者旅程清單合併查詢 (`getUserTrips`)**：同時撈取使用者擁有的旅程與受邀共編的旅程，並附加 `isOwner: true/false` 欄位供前端區分。
+    - **權限分級與守門機制 (`backend/Main.gs`)**：
+      - 行程內容與景點操作（`createSchedule`, `updateSchedule`, `deleteSchedule`, `updateTripInfo` 等）開放 Owner 與 Collaborator 共同編輯。
+      - 旅程刪除（`deleteTrip`）與共編名單管理（`addCollaborator`, `removeCollaborator`）嚴格限定僅 Owner 可操作。
+      - 刪除旅程時自動同步清理 `Trip_Collaborators` 關聯共編紀錄。
+  - **前端服務層與 API 適配器 (`src/services/apiService.js`)**：
+    - 新增 `getCollaborators`、`addCollaborator` 與 `removeCollaborator` API 方法。
+  - **編輯共編者彈跳視窗 (`src/components/CollaboratorsModal.jsx`)**：
+    - 採用 Ant Design 元件（`Modal`, `Input`, `Button`, `List`, `Avatar`, `Tag`, `Popconfirm`, `Spin`）打造毛玻璃質感共編者管理介面。
+    - 提供 Google Email 邀請表單，具備格式校驗、防重複邀請、防添加自己等防呆機制。
+    - 顯示旅程擁有者（標示「擁有者」Tag，不可刪除）與共編者列表（若已在系統註冊過顯示 Google 頭像與名稱，未註冊標示「待啟用」Tag）。
+    - 移除共編者整合 Ant Design `Popconfirm` 二次確認防誤觸。
+  - **首頁雙動作左滑手勢與身分標記 (`src/components/HomePage.jsx`, `HomePage.css`)**：
+    - 擴充 `TripSwipeItem` 向左滑動手勢：Owner 往左滑動時同時展開「👥 共編」（深木褐品牌色）與「🗑️ 刪除」（紅色）雙按鈕（總展開寬度 150px）。
+    - 非 Owner（共編者）自動禁用左滑手勢，無法刪除行程或修改共編者名單。
+    - 行程卡片右上方以 Ant Design `Tag` 清晰標記「擁有者」或「共編」。
+  - **共編者 API 流程效能最佳化**：新增與刪除共編者成功後，後端直接附帶最新共編名單回傳，前端直接更新狀態，免除二次 GET 請求，大幅減少網路往返等待時間。
+  - **Google Apps Script 生產端點更新 (`src/config.js`)**：部署包含 `Trip_Collaborators` 支援之最新 Web App 端點。
+
+---
+
 ## [0.9.2] - 2026-09-13
 
 ### Fixed

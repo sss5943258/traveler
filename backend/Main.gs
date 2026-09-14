@@ -53,6 +53,15 @@ function doGet(e) {
       const data = getUserPackingItems(userId);
       return createJsonResponse(data);
     }
+    // 4. 取得共編者名單（支援 owner 與 collaborator）
+    else if (action === 'getCollaborators') {
+      const targetTripId = params.tripId;
+      if (!targetTripId) return createJsonResponse({ status: 'error', message: '缺少 tripId 參數' });
+      if (!userId) {
+        return createJsonResponse({ status: 'error', code: 'TOKEN_NOT_FOUND', message: '請先登入以讀取共編者名單' });
+      }
+      return createJsonResponse(getTripCollaborators(targetTripId, userId));
+    }
 
     return createJsonResponse({ error: '未知的 action 參數: ' + action });
 
@@ -70,14 +79,14 @@ function doGet(e) {
 // 【輔助】驗證傳入 ID 是該登入使用者的可編輯 tripId
 // ============================================
 /**
- * 檢查指定的 tripId 是否屬於該登入使用者
+ * 檢查指定的 tripId 是否屬於該登入使用者（擁有者或共編者）
  * @param {string} tripId - 旅程 ID
  * @param {string} userId - 當前登入者 ID
  * @returns {boolean} 是否具備編輯權限
  */
 function isValidEditTripId(tripId, userId) {
   if (!tripId || !userId) return false;
-  return isTripOwner(tripId, userId);
+  return isTripOwner(tripId, userId) || isTripCollaborator(tripId, userId);
 }
 
 /**
@@ -217,12 +226,27 @@ function doPost(e) {
         }
         return createJsonResponse(uploadTripImage(payload));
 
-      // ── 刪除旅程 ──
+      // ── 刪除旅程 (嚴格僅限 Owner) ──
       case 'deleteTrip': {
-        if (!isValidEditTripId(payload.tripId, userId)) {
-          return createJsonResponse({ status: 'error', message: '無編輯權限或非旅程擁有者' });
+        if (!isTripOwner(payload.tripId, userId)) {
+          return createJsonResponse({ status: 'error', message: '無刪除權限或非此旅程擁有者' });
         }
         return createJsonResponse(deleteTrip(payload, userId));
+      }
+
+      // ── 共編者管理 (僅限 Owner) ──
+      case 'addCollaborator': {
+        if (!isTripOwner(payload.tripId, userId)) {
+          return createJsonResponse({ status: 'error', message: '只有旅程擁有者可以新增共編者' });
+        }
+        return createJsonResponse(addTripCollaborator(payload.tripId, payload.email, userId));
+      }
+
+      case 'removeCollaborator': {
+        if (!isTripOwner(payload.tripId, userId)) {
+          return createJsonResponse({ status: 'error', message: '只有旅程擁有者可以移除共編者' });
+        }
+        return createJsonResponse(removeTripCollaborator(payload.tripId, payload.email, userId));
       }
 
       // ── 行李攜帶清單 (PackingItems) ──

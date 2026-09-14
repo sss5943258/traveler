@@ -4,6 +4,7 @@ const SHEET_TRIPS_INFO = 'Trips_Info';
 const SHEET_USERS         = 'Users';        // 使用者資料表 (userId, email, name, picture, createdAt)
 const SHEET_SESSIONS      = 'Sessions';     // Session 資料表 (sessionId, userId, accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, isRevoked)
 const SHEET_PACKING_ITEMS = 'PackingItems'; // 攜帶清單資料表 (itemId, name, isEssential, checked, userId)
+const SHEET_TRIP_COLLABORATORS = 'Trip_Collaborators'; // 共編者名單資料表 (tripId, userEmail, userId, role, createdAt)
 
 // Google OAuth 2.0 Client ID
 // 和前端 .env 的 VITE_GOOGLE_CLIENT_ID 相同
