@@ -1,12 +1,28 @@
 // TripsService.gs
 
 /**
- * 取得指定使用者的所有旅程清單（資料隔離核心）
+ * 取得當前使用者在 Users 資料表中的 Email
+ * @param {string} userId - 使用者 ID
+ * @returns {string} 使用者 Email (小寫)
+ */
+function getUserEmailById(userId) {
+  if (!userId) return '';
+  const ss = getMySpreadsheet();
+  const usersSheet = ss.getSheetByName(SHEET_USERS);
+  if (!usersSheet) return '';
+  const usersData = parseSheetData(usersSheet.getDataRange().getValues());
+  const found = usersData.find(u => String(u.userId) === String(userId));
+  return found && found.email ? String(found.email).toLowerCase().trim() : '';
+}
+
+/**
+ * 取得指定使用者的所有旅程清單（包含個人擁有的旅程與受邀共編的旅程）
  * 若發現現有舊資料尚未設定 userId，將自動綁定給當前登入者（實現平滑無痛遷移）
  * @param {string} userId - 當前登入的使用者 ID
- * @returns {Array<Object>} 該使用者的旅程物件陣列
+ * @returns {Array<Object>} 該使用者的旅程物件陣列 (附帶 isOwner 欄位)
  */
 function getUserTrips(userId) {
+  const ss = getMySpreadsheet();
   const sheet = ensureSheetHeaders(SHEET_TRIPS, ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId']);
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
@@ -39,13 +55,61 @@ function getUserTrips(userId) {
     }
   }
 
+  // 取得當前使用者的 Email
+  const userEmail = getUserEmailById(userId);
+
+  // 掃描 Trip_Collaborators 工作表，比對當前使用者受邀共編的旅程，並執行延遲綁定 (Lazy Linking)
+  const collabSheet = ensureSheetHeaders(SHEET_TRIP_COLLABORATORS, ['tripId', 'userEmail', 'userId', 'role', 'createdAt']);
+  const collabValues = collabSheet.getDataRange().getValues();
+  const userCollabTripIds = new Set();
+
+  if (collabValues.length > 1) {
+    const cHeaders = collabValues[0].map(String);
+    const cTripIdIdx = cHeaders.indexOf('tripId');
+    const cEmailIdx = cHeaders.indexOf('userEmail');
+    const cUserIdIdx = cHeaders.indexOf('userId');
+
+    for (let j = 1; j < collabValues.length; j++) {
+      const rowTripId = String(collabValues[j][cTripIdIdx]);
+      const rowEmail = String(collabValues[j][cEmailIdx] || '').toLowerCase().trim();
+      const rowUserId = String(collabValues[j][cUserIdIdx] || '');
+
+      const isMatch = (rowUserId && rowUserId === String(userId)) || (userEmail && rowEmail === userEmail);
+      if (isMatch) {
+        userCollabTripIds.add(rowTripId);
+        // 若受邀時尚未登入過無 userId，於首次登入時自動補上
+        if (!rowUserId && userId && cUserIdIdx !== -1) {
+          collabSheet.getRange(j + 1, cUserIdIdx + 1).setValue(userId);
+          needFlush = true;
+        }
+      }
+    }
+  }
+
   if (needFlush) {
     SpreadsheetApp.flush();
   }
 
   const allTrips = parseSheetData(values);
-  // 只回傳屬於目前登入使用者的旅程
-  return allTrips.filter(t => String(t.userId) === String(userId));
+  const resultTrips = [];
+
+  // 1. 撈取自己擁有的旅程 (標示 isOwner = true)
+  allTrips.forEach(t => {
+    if (String(t.userId) === String(userId)) {
+      t.isOwner = true;
+      resultTrips.push(t);
+    }
+  });
+
+  // 2. 撈取受邀共編的旅程 (標示 isOwner = false)
+  allTrips.forEach(t => {
+    if (userCollabTripIds.has(String(t.tripId)) && String(t.userId) !== String(userId)) {
+      t.isOwner = false;
+      resultTrips.push(t);
+    }
+  });
+
+  return resultTrips;
 }
 
 /**
@@ -80,7 +144,231 @@ function isTripOwner(tripId, userId) {
 }
 
 /**
- * 讀取特定旅程詳情（支援 owner 與唯讀分享連結）
+ * 驗證指定 tripId 是否為當前登入者具備共編權限之旅程
+ * @param {string} tripId - 旅程 ID
+ * @param {string} userId - 當前登入者 ID
+ * @param {string} [userEmail] - 當前登入者 Email (可選，未傳入自動反查)
+ * @returns {boolean} 是否為共編者
+ */
+function isTripCollaborator(tripId, userId, userEmail) {
+  if (!tripId || !userId) return false;
+  const email = userEmail || getUserEmailById(userId);
+  const sheet = ensureSheetHeaders(SHEET_TRIP_COLLABORATORS, ['tripId', 'userEmail', 'userId', 'role', 'createdAt']);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return false;
+
+  const data = parseSheetData(values);
+  return data.some(row => 
+    String(row.tripId) === String(tripId) && (
+      String(row.userId) === String(userId) ||
+      (email && String(row.userEmail).toLowerCase().trim() === email)
+    )
+  );
+}
+
+/**
+ * 取得特定旅程的擁有者與共編者完整名單 (含頭像與名稱)
+ * @param {string} tripId - 旅程 ID
+ * @param {string} userId - 當前操作者 ID (需為 Owner 或 Collaborator)
+ * @returns {Object} { status: 'success', owner: Object, collaborators: Array }
+ */
+function getTripCollaborators(tripId, userId) {
+  if (!tripId || !userId) {
+    return { status: 'error', message: '缺少必要參數' };
+  }
+
+  // 驗證是否有權限查看（Owner 或 Collaborator 皆可查看名單）
+  if (!isTripOwner(tripId, userId) && !isTripCollaborator(tripId, userId)) {
+    return { status: 'error', message: '無權限查看此旅程的共編者名單' };
+  }
+
+  const ss = getMySpreadsheet();
+  const tripsSheet = ensureSheetHeaders(SHEET_TRIPS, ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId']);
+  const trips = parseSheetData(tripsSheet.getDataRange().getValues());
+  const trip = trips.find(t => String(t.tripId) === String(tripId));
+  if (!trip) {
+    return { status: 'error', message: '找不到旅程' };
+  }
+
+  const usersSheet = ensureSheetHeaders(SHEET_USERS, ['userId', 'email', 'name', 'picture', 'createdAt']);
+  const users = parseSheetData(usersSheet.getDataRange().getValues());
+
+  // 1. 取得 Owner 資料
+  const ownerUser = users.find(u => String(u.userId) === String(trip.userId)) || {};
+  const ownerInfo = {
+    userId: trip.userId,
+    email: ownerUser.email || '',
+    name: ownerUser.name || ownerUser.email || '旅程建立者',
+    picture: ownerUser.picture || '',
+    isOwner: true
+  };
+
+  // 2. 取得所有共編者
+  const collabSheet = ensureSheetHeaders(SHEET_TRIP_COLLABORATORS, ['tripId', 'userEmail', 'userId', 'role', 'createdAt']);
+  const collabData = parseSheetData(collabSheet.getDataRange().getValues());
+  const tripCollabs = collabData.filter(c => String(c.tripId) === String(tripId));
+
+  const collaborators = tripCollabs.map(c => {
+    const email = String(c.userEmail || '').toLowerCase().trim();
+    const matchedUser = users.find(u => 
+      (c.userId && String(u.userId) === String(c.userId)) ||
+      (email && String(u.email || '').toLowerCase().trim() === email)
+    );
+
+    return {
+      tripId: c.tripId,
+      userEmail: c.userEmail,
+      userId: c.userId || (matchedUser ? matchedUser.userId : ''),
+      role: c.role || 'editor',
+      createdAt: c.createdAt,
+      name: matchedUser ? matchedUser.name : (c.userEmail.split('@')[0]),
+      picture: matchedUser ? (matchedUser.picture || '') : '',
+      isRegistered: !!matchedUser
+    };
+  });
+
+  return {
+    status: 'success',
+    tripName: trip.name,
+    owner: ownerInfo,
+    collaborators: collaborators
+  };
+}
+
+/**
+ * 為指定旅程新增共編者 (僅限 Owner)
+ * @param {string} tripId - 旅程 ID
+ * @param {string} targetEmail - 要邀請的共編者 Google Email
+ * @param {string} operatorUserId - 操作者 ID (必須為 Owner)
+ * @returns {Object} 執行結果狀態
+ */
+function addTripCollaborator(tripId, targetEmail, operatorUserId) {
+  if (!tripId || !targetEmail || !operatorUserId) {
+    return { status: 'error', message: '缺少必要參數' };
+  }
+
+  // 1. 嚴格驗證操作者必須是旅程 Owner
+  if (!isTripOwner(tripId, operatorUserId)) {
+    return { status: 'error', message: '只有旅程擁有者可以新增共編者' };
+  }
+
+  const cleanEmail = String(targetEmail).toLowerCase().trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    return { status: 'error', message: '請輸入正確的 Email 格式' };
+  }
+
+  // 2. 檢查是否為 Owner 自己的 Email
+  const ownerEmail = getUserEmailById(operatorUserId);
+  if (ownerEmail && ownerEmail === cleanEmail) {
+    return { status: 'error', message: '你已經是此旅程的擁有者，不需將自己加入共編' };
+  }
+
+  // 3. 檢查是否已經在共編者名單中
+  const collabSheet = ensureSheetHeaders(SHEET_TRIP_COLLABORATORS, ['tripId', 'userEmail', 'userId', 'role', 'createdAt']);
+  const collabValues = collabSheet.getDataRange().getValues();
+  if (collabValues.length > 1) {
+    const existing = parseSheetData(collabValues);
+    const isDuplicate = existing.some(c => 
+      String(c.tripId) === String(tripId) && 
+      String(c.userEmail).toLowerCase().trim() === cleanEmail
+    );
+    if (isDuplicate) {
+      return { status: 'error', message: '該使用者已經在此旅程的共編者名單中' };
+    }
+  }
+
+  // 4. 檢查該 Email 是否已經在 Users 資料表中註冊過（若有則直接帶入其 userId）
+  const ss = getMySpreadsheet();
+  const usersSheet = ss.getSheetByName(SHEET_USERS);
+  let matchedUserId = '';
+  if (usersSheet) {
+    const users = parseSheetData(usersSheet.getDataRange().getValues());
+    const matched = users.find(u => String(u.email || '').toLowerCase().trim() === cleanEmail);
+    if (matched) matchedUserId = matched.userId;
+  }
+
+  // 5. 寫入 Trip_Collaborators
+  appendDataToSheet(collabSheet, {
+    tripId: tripId,
+    userEmail: cleanEmail,
+    userId: matchedUserId,
+    role: 'editor',
+    createdAt: new Date().toISOString()
+  });
+
+  SpreadsheetApp.flush();
+
+  // 操作成功後，直接撈取最新完整共編名單回傳，避免前端額外發起第二次 GET 請求
+  const latest = getTripCollaborators(tripId, operatorUserId);
+  return {
+    status: 'success',
+    message: '已成功新增共編者',
+    tripName: latest.tripName,
+    owner: latest.owner,
+    collaborators: latest.collaborators
+  };
+}
+
+/**
+ * 移除指定旅程的共編者 (僅限 Owner)
+ * @param {string} tripId - 旅程 ID
+ * @param {string} targetEmail - 要移除的共編者 Email
+ * @param {string} operatorUserId - 操作者 ID (必須為 Owner)
+ * @returns {Object} 執行結果狀態 (含最新共編者名單)
+ */
+function removeTripCollaborator(tripId, targetEmail, operatorUserId) {
+  if (!tripId || !targetEmail || !operatorUserId) {
+    return { status: 'error', message: '缺少必要參數' };
+  }
+
+  // 1. 嚴格驗證操作者必須是旅程 Owner
+  if (!isTripOwner(tripId, operatorUserId)) {
+    return { status: 'error', message: '只有旅程擁有者可以移除共編者' };
+  }
+
+  const cleanEmail = String(targetEmail).toLowerCase().trim();
+  const collabSheet = ensureSheetHeaders(SHEET_TRIP_COLLABORATORS, ['tripId', 'userEmail', 'userId', 'role', 'createdAt']);
+  const values = collabSheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    return { status: 'error', message: '找不到指定的共編者紀錄' };
+  }
+
+  const headers = values[0].map(String);
+  const tripIdCol = headers.indexOf('tripId');
+  const emailCol = headers.indexOf('userEmail');
+
+  let deleted = false;
+  for (let i = values.length - 1; i >= 1; i--) {
+    if (
+      String(values[i][tripIdCol]) === String(tripId) &&
+      String(values[i][emailCol]).toLowerCase().trim() === cleanEmail
+    ) {
+      collabSheet.deleteRow(i + 1);
+      deleted = true;
+      break;
+    }
+  }
+
+  if (!deleted) {
+    return { status: 'error', message: '找不到該共編者紀錄' };
+  }
+
+  SpreadsheetApp.flush();
+
+  // 操作成功後，直接撈取最新完整共編名單回傳，避免前端額外發起第二次 GET 請求
+  const latest = getTripCollaborators(tripId, operatorUserId);
+  return {
+    status: 'success',
+    message: '已成功移除共編者',
+    tripName: latest.tripName,
+    owner: latest.owner,
+    collaborators: latest.collaborators
+  };
+}
+
+/**
+ * 讀取特定旅程詳情（支援 owner、共編者與唯讀分享連結）
  * @param {string} id - tripId 或 readOnlyId
  * @param {string} [userId] - 當前登入的使用者 ID（若是唯讀分享連結可為空）
  * @returns {Object} 旅程完整巢狀資料或錯誤物件
@@ -97,13 +385,17 @@ function getTripDetails(id, userId) {
   let tripId = id; // 用於後續查詢 Schedules 的真實 tripId
 
   if (trip) {
-    // 使用真實 tripId 查詢：必須驗證是否為 owner
+    // 使用真實 tripId 查詢：必須驗證是否為 owner 或共編者
     if (!trip.userId && userId) {
       // 舊資料自動綁定
       isTripOwner(trip.tripId, userId);
       trip.userId = userId;
     } else if (trip.userId && String(trip.userId) !== String(userId)) {
-      return { error: '無權限存取此旅程' };
+      // 若不是 owner，檢查是否為共編者
+      const isCollab = isTripCollaborator(trip.tripId, userId);
+      if (!isCollab) {
+        return { error: '無權限存取此旅程' };
+      }
     }
   } else {
     // 找不到 tripId，嘗試用 readOnlyId 尋找（唯讀分享模式）
@@ -174,6 +466,7 @@ function getTripDetails(id, userId) {
     tripId: trip.tripId,
     readOnlyId: trip.readOnlyId || '',
     isReadOnly: isReadOnly,
+    isOwner: !isReadOnly && isTripOwner(trip.tripId, userId),
     name:   trip.name,
     startDate: trip.startDate,
     endDate:   trip.endDate,
@@ -344,6 +637,18 @@ function deleteTrip(payload, userId) {
     for (let i = values.length - 1; i >= 1; i--) {
       if (String(values[i][tripIdCol]) === String(tripId)) {
         schedulesSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // 5. 從 Trip_Collaborators 工作表刪除該旅程的所有共編紀錄
+  const collabSheet = ss.getSheetByName(SHEET_TRIP_COLLABORATORS);
+  if (collabSheet) {
+    const values = collabSheet.getDataRange().getValues();
+    const tripIdCol = values[0].indexOf('tripId');
+    for (let i = values.length - 1; i >= 1; i--) {
+      if (String(values[i][tripIdCol]) === String(tripId)) {
+        collabSheet.deleteRow(i + 1);
       }
     }
   }

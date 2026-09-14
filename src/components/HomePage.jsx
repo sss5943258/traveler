@@ -1,24 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
-import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2, LogOut } from 'lucide-react'
-import { message } from 'antd'
+import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2, LogOut, Users } from 'lucide-react'
+import { message, Tag } from 'antd'
 import { apiService } from '../services/apiService'
 import { useAuthStore } from '../stores/authStore'
 import { logoutFromServer } from '../services/authService'
 import NewTripModal from './NewTripModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import LogoutConfirmModal from './LogoutConfirmModal'
+import CollaboratorsModal from './CollaboratorsModal'
 import './HomePage.css'
 
 // ─── 單個可左滑的行程項目 ───────────────────────────────────────
-const DELETE_BTN_WIDTH = 80 // px
+const SWIPE_ACTIONS_WIDTH = 150 // px (共編 75px + 刪除 75px)
 
 /**
- * TripSwipeItem 元件 (單個可左滑刪除的行程項目)
- * @param {Object} props.trip 行程的資料物件
+ * TripSwipeItem 元件 (單個可左滑展開動作按鈕的行程項目)
+ * @param {Object} props.trip 行程的資料物件 (包含 isOwner 欄位)
  * @param {Function} props.onSelect 點擊選取行程的 callback 函式
  * @param {Function} props.onDeleteRequest 點擊刪除按鈕時觸發的 callback 函式
+ * @param {Function} props.onEditCollaborators 點擊編輯共編者按鈕時觸發的 callback 函式
  */
-function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
+function TripSwipeItem({ trip, onSelect, onDeleteRequest, onEditCollaborators }) {
+  // isOwner 變數：判斷當前登入者是否為該旅程擁有者（共編者則不可左滑）
+  const isOwner = trip.isOwner !== false
+
   // offsetX 狀態：控制行程按鈕向左偏移的像素值 (X 軸位移量)
   const [offsetX, setOffsetX] = useState(0)
 
@@ -36,15 +41,16 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
 
   /**
    * clamp 限制數值邊界函式
-   * 用於將數值限制在最小與最大值之間 (避免向右拖曳，且向左最大只能拖曳出刪除按鈕寬度)
+   * 用於將數值限制在最小與最大值之間 (避免向右拖曳，且向左最大只能拖曳出動作按鈕總寬度)
    */
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val))
 
   /**
    * onTouchStart 觸控開始處理函式
-   * 當手機端使用者觸碰螢幕時觸發，記錄當下的觸碰起點 X 座標
+   * 當手機端使用者觸碰螢幕時觸發，若非 Owner 則直接忽略左滑
    */
   const onTouchStart = (e) => {
+    if (!isOwner) return
     startXRef.current = e.touches[0].clientX
     setIsDragging(true)
   }
@@ -54,17 +60,18 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
    * 計算目前滑動的距離並即時更新 offsetX 狀態，產生跟手滑動的效果
    */
   const onTouchMove = (e) => {
-    if (startXRef.current === null) return
+    if (!isOwner || startXRef.current === null) return
     const delta = e.touches[0].clientX - startXRef.current
-    const next = clamp(currentXRef.current + delta, -DELETE_BTN_WIDTH, 0)
+    const next = clamp(currentXRef.current + delta, -SWIPE_ACTIONS_WIDTH, 0)
     setOffsetX(next)
   }
 
   /**
    * onTouchEnd 觸控結束處理函式
-   * 當使用者手指離開螢幕時，依據滑動距離決定要完全展開刪除按鈕，還是彈回原點
+   * 當使用者手指離開螢幕時，依據滑動距離決定要完全展開動作按鈕，還是彈回原點
    */
   const onTouchEnd = (e) => {
+    if (!isOwner || startXRef.current === null) return
     const delta = e.changedTouches[0].clientX - startXRef.current
     settle(delta)
     startXRef.current = null
@@ -76,6 +83,7 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
    * 註冊滑鼠移動及放開事件，以實現與手機端相同的拖曳體驗
    */
   const onMouseDown = (e) => {
+    if (!isOwner) return
     startXRef.current = e.clientX
     setIsDragging(true)
 
@@ -83,7 +91,7 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
     const onMouseMove = (ev) => {
       if (startXRef.current === null) return
       const delta = ev.clientX - startXRef.current
-      const next = clamp(currentXRef.current + delta, -DELETE_BTN_WIDTH, 0)
+      const next = clamp(currentXRef.current + delta, -SWIPE_ACTIONS_WIDTH, 0)
       setOffsetX(next)
     }
 
@@ -102,12 +110,12 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
 
   /**
    * settle 位置結算邏輯函式
-   * 如果向左拖曳超過 30px，自動將位移拉滿至刪除按鈕寬度 (-80px)，否則彈回原點 (0px)
+   * 如果向左拖曳超過 35px，自動將位移拉滿至動作按鈕寬度 (-150px)，否則彈回原點 (0px)
    */
   const settle = (totalDelta) => {
-    if (totalDelta < -30) {
-      currentXRef.current = -DELETE_BTN_WIDTH
-      setOffsetX(-DELETE_BTN_WIDTH)
+    if (totalDelta < -35) {
+      currentXRef.current = -SWIPE_ACTIONS_WIDTH
+      setOffsetX(-SWIPE_ACTIONS_WIDTH)
     } else {
       currentXRef.current = 0
       setOffsetX(0)
@@ -128,19 +136,46 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
 
   return (
     <div ref={containerRef} className="trip-swipe-wrap">
-      {/* 背景紅色刪除區塊 */}
-      <button
-        className="trip-delete-reveal"
-        style={{ width: DELETE_BTN_WIDTH, visibility: offsetX < 0 ? 'visible' : 'hidden' }}
-        onClick={() => {
-          currentXRef.current = 0
-          setOffsetX(0)
-          onDeleteRequest(trip)
-        }}
-      >
-        <Trash2 size={20} />
-        <span>刪除</span>
-      </button>
+      {/* 擁有者專屬：左滑展開的共編與刪除按鈕區塊 */}
+      {isOwner && (
+        <div
+          className="trip-swipe-actions"
+          style={{
+            width: SWIPE_ACTIONS_WIDTH,
+            visibility: offsetX < 0 ? 'visible' : 'hidden',
+          }}
+        >
+          {/* 共編按鈕 */}
+          <button
+            className="trip-collab-reveal"
+            style={{ width: 75 }}
+            onClick={() => {
+              currentXRef.current = 0
+              setOffsetX(0)
+              onEditCollaborators(trip)
+            }}
+            title="編輯共編者"
+          >
+            <Users size={18} />
+            <span>共編</span>
+          </button>
+
+          {/* 刪除按鈕 */}
+          <button
+            className="trip-delete-reveal"
+            style={{ width: 75 }}
+            onClick={() => {
+              currentXRef.current = 0
+              setOffsetX(0)
+              onDeleteRequest(trip)
+            }}
+            title="刪除旅程"
+          >
+            <Trash2 size={18} />
+            <span>刪除</span>
+          </button>
+        </div>
+      )}
 
       {/* 主行程按鈕 */}
       <button
@@ -162,7 +197,15 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest }) {
             <Plane size={22} />
           </div>
           <div className="home-btn-text">
-            <span className="home-btn-label">{trip.name}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="home-btn-label">{trip.name}</span>
+              <Tag
+                color={isOwner ? '#583f24' : 'blue'}
+                className="m-0 text-[10px] px-1.5 py-0.5 rounded leading-none font-normal"
+              >
+                {isOwner ? '擁有者' : '共編'}
+              </Tag>
+            </div>
             <span className="home-btn-desc">
               {trip.startDate && trip.endDate
                 ? `${trip.startDate} ~ ${trip.endDate}`
@@ -193,6 +236,9 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
   const [showNewTripModal, setShowNewTripModal] = useState(false)
   // deletingTrip 狀態：儲存當下正準備進行刪除確認的行程物件
   const [deletingTrip, setDeletingTrip] = useState(null)
+
+  // collaboratingTrip 狀態：儲存當下正準備開啟編輯共編者的行程物件 (null 代表關閉視窗)
+  const [collaboratingTrip, setCollaboratingTrip] = useState(null)
 
   // isLoggingOut 狀態：標記是否正在執行後端登出請求
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -353,6 +399,7 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
               trip={trip}
               onSelect={onSelectTrip}
               onDeleteRequest={(t) => setDeletingTrip(t)}
+              onEditCollaborators={(t) => setCollaboratingTrip(t)}
             />
           ))}
 
@@ -402,6 +449,14 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
           }}
           isLoggingOut={isLoggingOut}
           user={user}
+        />
+      )}
+
+      {/* 編輯共編者彈跳視窗 (Ant Design 毛玻璃風格) */}
+      {collaboratingTrip && (
+        <CollaboratorsModal
+          trip={collaboratingTrip}
+          onClose={() => setCollaboratingTrip(null)}
         />
       )}
     </div>
