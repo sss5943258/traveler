@@ -6,7 +6,14 @@
  * - 'LOCAL': 本地端 ASP.NET Core 後端 (http://localhost:5005/api)
  * - 'RENDER': 雲端 Render ASP.NET Core 後端 (https://travel-app-api-h5ix.onrender.com/api)
  */
-export const ENV = 'LOCAL'; // 切換環境只需修改此變數：'GAS' | 'LOCAL' | 'RENDER'
+// ── 系統環境判定 ──────────────────────────────────────────────────
+// 1. 優先讀取 .env 的 VITE_ENV ('GAS' | 'LOCAL' | 'RENDER')
+// 2. 若未手動指定，依據打包模式自動切換：
+//    - 開發模式 (npm run dev)：預設連線本地 'LOCAL'
+//    - 正式建置 (npm run build / GitHub Pages)：自動切換為雲端 'RENDER'
+export const ENV =
+  import.meta.env.VITE_ENV ||
+  (import.meta.env.PROD ? 'RENDER' : 'LOCAL');
 
 // ── 1. Google Apps Script 進入點 ──────────────────────────────────
 export const API_URL_GAS =
