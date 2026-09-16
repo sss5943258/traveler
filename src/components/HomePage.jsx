@@ -8,7 +8,21 @@ import NewTripModal from './NewTripModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import LogoutConfirmModal from './LogoutConfirmModal'
 import CollaboratorsModal from './CollaboratorsModal'
+import { parseLocalDate } from './TripPage'
 import './HomePage.css'
+
+/**
+ * 輔助函式：將 ISO 8601 或一般字串格式化為 YYYY/MM/DD ~ YYYY/MM/DD
+ */
+const formatTripDates = (startDate, endDate) => {
+  if (!startDate || !endDate) return '點擊查看行程';
+  const s = parseLocalDate(startDate);
+  const e = parseLocalDate(endDate);
+  if (!s || !e) return `${startDate} ~ ${endDate}`;
+  const sStr = `${s.year}/${String(s.month).padStart(2, '0')}/${String(s.day).padStart(2, '0')}`;
+  const eStr = `${e.year}/${String(e.month).padStart(2, '0')}/${String(e.day).padStart(2, '0')}`;
+  return `${sStr} ~ ${eStr}`;
+};
 
 // ─── 單個可左滑的行程項目 ───────────────────────────────────────
 const SWIPE_ACTIONS_WIDTH = 150 // px (共編 75px + 刪除 75px)
@@ -207,9 +221,7 @@ function TripSwipeItem({ trip, onSelect, onDeleteRequest, onEditCollaborators })
               </Tag>
             </div>
             <span className="home-btn-desc">
-              {trip.startDate && trip.endDate
-                ? `${trip.startDate} ~ ${trip.endDate}`
-                : '點擊查看行程'}
+              {formatTripDates(trip.startDate, trip.endDate)}
             </span>
           </div>
         </div>
@@ -303,8 +315,10 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
    */
   const handleTripCreated = (newTrip) => {
     setShowNewTripModal(false)
-    if (newTrip?.tripId) {
-      onSelectTrip(newTrip.tripId)
+    // 兼容頂層 tripId 或 data.tripId 結構
+    const targetTripId = newTrip?.tripId || newTrip?.data?.tripId
+    if (targetTripId) {
+      onSelectTrip(targetTripId)
     } else {
       fetchTrips()
     }

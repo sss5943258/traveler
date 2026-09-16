@@ -422,8 +422,8 @@ function getTripDetails(id, userId) {
     return (a.startTime || "24:00").localeCompare(b.startTime || "24:00");
   });
 
-  // 3. 組成巢狀結構
-  const journeys = groupToJourneys(filtered);
+  // 3. 組成巢狀結構 (傳入起訖日以自動保全空天數 Day 1 ~ Day N)
+  const journeys = groupToJourneys(filtered, trip.startDate, trip.endDate);
 
   // 4. 取得旅程詳細資訊 (航班與行程備註)
   const defaultTripInfo = {

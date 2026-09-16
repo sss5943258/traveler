@@ -55,6 +55,167 @@ const formatTransportDuration = (totalMinutes) => {
   return `${remainingMins}m`;
 };
 
+/**
+ * parseLocalDate 輔助函式
+ * 安全解析任何形式的日期 (支援 'YYYY-MM-DD', 'YYYY/MM/DD', ISO 8601 如 '2027-01-07T16:00:00.000Z', 或 Date 物件)
+ * 轉為當地的 { year, month, day } (month 為 1-based: 1~12)
+ * 
+ * [React 觀念解析 - 跨時區與 ISO 字串相容解析]
+ * Google Sheets 常常會將日期自動轉為 Date 物件並序列化成 ISO 8601 字串 (如 "2027-01-07T16:00:00.000Z")。
+ * 若單純使用 split('-') 會得到 NaN 導致天數計算失敗。
+ * 本函式先判斷是否為純日期字串，若含時間/時區則交由 new Date() 還原瀏覽器當地時區的年月日。
+ * 
+ * @param {string|Date} val - 欲解析的日期
+ * @returns {{ year: number, month: number, day: number } | null}
+ */
+export const parseLocalDate = (val) => {
+  if (!val) return null;
+
+  // 若本身已是 Date 物件
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    return {
+      year: val.getFullYear(),
+      month: val.getMonth() + 1,
+      day: val.getDate(),
+    };
+  }
+
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // 情況 A：純日期字串 (YYYY-MM-DD 或 YYYY/MM/DD)，且不帶時區與時間標記 (T / Z / +)
+  const plainMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (plainMatch) {
+    return {
+      year: parseInt(plainMatch[1], 10),
+      month: parseInt(plainMatch[2], 10),
+      day: parseInt(plainMatch[3], 10),
+    };
+  }
+
+  // 情況 B：含 ISO 時間或時區字串 (例如 "2027-01-07T16:00:00.000Z")
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+    };
+  }
+
+  // 情況 C：最後備援比對
+  const fallbackMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (fallbackMatch) {
+    return {
+      year: parseInt(fallbackMatch[1], 10),
+      month: parseInt(fallbackMatch[2], 10),
+      day: parseInt(fallbackMatch[3], 10),
+    };
+  }
+
+  return null;
+};
+
+/**
+ * buildCompleteJourneys 輔助函式
+ * 根據旅程起訖日與既有行程明細，補全並保全 Day 1 ~ Day N 的完整天數結構
+ * 
+ * [React 觀念解析 - 客戶端資料防禦與結構標準化 (Client-side Data Normalization)]
+ * 1. 為了實現「新建立行程不產生假卡片」以及「刪除卡片後那一天不會消失」，前端不以「是否有卡片」作為天數存在的依據，
+ *    而是嚴格根據旅程的出發日期 (startDate) 與回程日期 (endDate) 推算天數。
+ * 2. 同時計算既有行程明細中的最大天數 (maxCardDay)，並取 Math.max(dateDays, maxCardDay)，
+ *    確保若有歷史舊資料的天數大於日期區間，卡片也不會被截斷隱藏。
+ * 3. 每一天預設包含 schedule: []，若當天沒有行程，畫面會展示友善的空狀態與新增按鈕。
+ * 4. 最前面強制置頂放入 Day 0 (旅程資訊)，供使用者查看航班資訊與旅程備註。
+ * 
+ * @param {Array<Object>} rawJourneys - 後端回傳的原始 journeys 陣列
+ * @param {string} startDateStr - 旅程出發日期 (YYYY-MM-DD 或 ISO 8601)
+ * @param {string} endDateStr - 旅程回程日期 (YYYY-MM-DD 或 ISO 8601)
+ * @returns {Array<Object>} 補全後的完整每日行程陣列
+ */
+const buildCompleteJourneys = (rawJourneys = [], startDateStr = '', endDateStr = '') => {
+  // 過濾掉 Day 0，只處理 Day 1 以上的每日行程
+  const nonDayZero = (rawJourneys || []).filter((j) => j && j.day !== 0);
+  const journeyMap = new Map();
+  nonDayZero.forEach((j) => {
+    journeyMap.set(Number(j.day), j);
+  });
+
+  // 計算既有卡片中的最大天數 (避免歷史舊卡片被截斷)
+  let maxCardDay = 0;
+  nonDayZero.forEach((j) => {
+    const d = Number(j.day) || 0;
+    if (d > maxCardDay) maxCardDay = d;
+  });
+
+  let totalDays = maxCardDay;
+  let sYear, sMonth, sDay;
+
+  // 若有出發與回程日期，計算標準天數區間 (支援純日期或 ISO 8601 格式)
+  const startParsed = parseLocalDate(startDateStr);
+  const endParsed = parseLocalDate(endDateStr);
+
+  if (startParsed && endParsed) {
+    const start = new Date(startParsed.year, startParsed.month - 1, startParsed.day);
+    const end = new Date(endParsed.year, endParsed.month - 1, endParsed.day);
+    const diffTime = end.getTime() - start.getTime();
+    if (diffTime >= 0) {
+      const dateDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      totalDays = Math.max(dateDays, maxCardDay);
+      sYear = startParsed.year;
+      sMonth = startParsed.month;
+      sDay = startParsed.day;
+    }
+  }
+
+  const resultJourneys = [];
+
+  // 依序展開 Day 1 ~ Day totalDays
+  for (let d = 1; d <= totalDays; d++) {
+    let dayDate = '';
+    if (sYear !== undefined) {
+      const cur = new Date(sYear, sMonth - 1, sDay + (d - 1));
+      const yyyy = cur.getFullYear();
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      const dd = String(cur.getDate()).padStart(2, '0');
+      dayDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (journeyMap.has(d)) {
+      const existing = journeyMap.get(d);
+      resultJourneys.push({
+        ...existing,
+        day: d,
+        date: existing.date || dayDate,
+        schedule: existing.schedule || [],
+      });
+      journeyMap.delete(d);
+    } else {
+      // 補上無任何卡片的純空天數
+      resultJourneys.push({
+        day: d,
+        date: dayDate,
+        schedule: [],
+      });
+    }
+  }
+
+  // 處理任何超出 totalDays 範圍的非預期天數 (防禦容錯)
+  journeyMap.forEach((j, dayKey) => {
+    resultJourneys.push({
+      ...j,
+      day: dayKey,
+      schedule: j.schedule || [],
+    });
+  });
+
+  resultJourneys.sort((a, b) => a.day - b.day);
+
+  // 一律以 Day 0 (旅程資訊) 置頂回傳
+  return [{ day: 0, date: '旅程資訊', schedule: [] }, ...resultJourneys];
+};
+
 // 輔助函式：依交通方式取得對應 Icon 與顯示名稱 (支援自訂 Icon 尺寸)
 const getTransportMeta = (type, customName, iconSize = 15) => {
   switch (type) {
@@ -756,15 +917,8 @@ export default function TripPage({ tripId, onBack }) {
     try {
       const data = await apiService.getTripDetails(tripId)
 
-      let updatedJourneys = data.journeys || []
-      const hasDayZero = updatedJourneys.some(j => j.day === 0)
-      if (!hasDayZero) {
-        // 若缺少 Day 0 (旅程資訊)，前端手動塞入一筆作為占位
-        updatedJourneys = [{ day: 0, date: '旅程資訊', schedule: [] }, ...updatedJourneys]
-      } else {
-        const d0Index = updatedJourneys.findIndex(j => j.day === 0)
-        updatedJourneys[d0Index] = { ...updatedJourneys[d0Index], schedule: [] }
-      }
+      // 依據出發與回程日期補全並保全完整的 Day 1 ~ Day N（若無卡片則為 schedule: []，全刪也不會消失）
+      const updatedJourneys = buildCompleteJourneys(data.journeys || [], data.startDate, data.endDate)
 
       setTripInfo(data)
       setIsReadOnly(data.isReadOnly || false)
@@ -868,7 +1022,6 @@ export default function TripPage({ tripId, onBack }) {
       const currentSchedules = currentJourney?.schedule || []
       const maxSortOrder = currentSchedules.reduce((max, s) => Math.max(max, Number(s.sortOrder) || 0), 0)
 
-      const newGroupId = 'g-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
       const tempId = `t3-d${item.day}-${Date.now()}`
 
       const newScheduleDto = {
@@ -881,7 +1034,7 @@ export default function TripPage({ tripId, onBack }) {
         endTime: '',
         remark: item.remark || '',
         googleMapLink: item.googleMapLink || '',
-        groupId: newGroupId,
+        groupId: null, // 設為 null，由後端自動生成新的 UUID 群組
         altOrder: 0,
         sortOrder: maxSortOrder + 1
       }

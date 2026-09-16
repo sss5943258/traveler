@@ -160,15 +160,26 @@ function doPost(e) {
       // ── 旅程建立 ──
       case 'createTrip': {
         const sheet = ensureSheetHeaders(SHEET_TRIPS, ['tripId', 'name', 'startDate', 'endDate', 'coverUrl', 'readOnlyId', 'userId']);
-        const tripData = Object.assign({}, payload.data || {});
-        // 自動注入當前建立者的 userId 與分享用的 readOnlyId
-        tripData.userId = userId;
-        if (!tripData.readOnlyId) {
-          tripData.readOnlyId = Utilities.getUuid().slice(0, 8);
-        }
+        // 同時兼容前端傳送的 payload.data 或頂層屬性 (name, startDate, endDate 等)
+        const rawData = (payload.data && typeof payload.data === 'object') ? payload.data : payload;
+        const tripData = {
+          tripId: rawData.tripId || Utilities.getUuid(),
+          name: rawData.name || '',
+          startDate: rawData.startDate || '',
+          endDate: rawData.endDate || '',
+          coverUrl: rawData.coverUrl || '',
+          readOnlyId: rawData.readOnlyId || Utilities.getUuid().slice(0, 8),
+          userId: userId
+        };
         appendDataToSheet(sheet, tripData);
         SpreadsheetApp.flush();
-        return createJsonResponse({ status: 'success', message: '建立旅遊計畫成功', data: tripData });
+        return createJsonResponse({
+          status: 'success',
+          message: '建立旅遊計畫成功',
+          tripId: tripData.tripId,
+          readOnlyId: tripData.readOnlyId,
+          data: tripData
+        });
       }
 
       case 'createSchedule': {

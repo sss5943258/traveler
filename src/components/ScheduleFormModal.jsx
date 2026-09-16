@@ -109,6 +109,8 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
         res = await apiService.updateSchedule(item.id, { ...form, ...extraPayload })
       } else {
         const tempId = isEdit ? item.id : `t3-d${targetDay}-${Date.now()}`
+        // 判斷群組 ID：僅當新增備案時繼承目標群組的 groupId，新建主行程則設為 null 由後端生成 UUID
+        const targetGroupId = mode === 'addBackup' ? (groupId || item?.groupId || null) : (isEdit ? item?.groupId : null)
         const currentAlt = isEdit ? item.altOrder : (altOrder || 0)
 
         const scheduleDto = {
@@ -116,7 +118,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
           id: tempId,
           day: targetDay,
           date: targetDate,
-          groupId: isEdit ? item.groupId : (groupId || tempId),
+          groupId: targetGroupId,
           altOrder: currentAlt,
           ...form,
           ...extraPayload
@@ -133,13 +135,14 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
       }
 
       // 儲存成功且無衝突
-      const savedId = res?.id || (isEdit ? item.id : null) || `t3-d${targetDay}-${Date.now()}`
+      const savedId = res?.id || res?.data?.id || (isEdit ? item.id : null) || `t3-d${targetDay}-${Date.now()}`
+      const finalGroupId = res?.data?.groupId || (isEdit ? item.groupId : (groupId || savedId))
       savedItem = {
         ...form,
         id: savedId,
         day: targetDay,
         date: targetDate,
-        groupId: isEdit ? item.groupId : (groupId || savedId),
+        groupId: finalGroupId,
         altOrder: isEdit ? item.altOrder : (altOrder || 0)
       }
 

@@ -80,8 +80,14 @@ export function validateScheduleForm(form = {}) {
 
 /**
  * 新增/編輯旅行計畫表單 (TripForm) 專用驗證器
- * @param {Object} form { name, startDate, endDate }
- * @returns {Object} 回傳錯誤物件 { name, startDate, endDate }
+ * 
+ * [React / 前端觀念解析 - 表單驗證與錯誤狀態隔離]
+ * 驗證函式接收表單目前的 state (form 物件)，並依序檢查各欄位的有效性。
+ * 若某欄位不符合規範，即在回傳的 errors 物件中以該欄位名稱為 key 填入錯誤訊息。
+ * 呼叫端 (NewTripModal) 便可藉由 errors.startDate 或 errors.endDate 獨立判斷紅字提示與高亮框線。
+ * 
+ * @param {Object} form 表單數值物件 { name, startDate, endDate }
+ * @returns {Object} 回傳錯誤物件 { name?, startDate?, endDate? }
  */
 export function validateTripForm(form = {}) {
   const errors = {}
@@ -90,9 +96,19 @@ export function validateTripForm(form = {}) {
   const nameError = isRequired(form.name, '行程名稱')
   if (nameError) errors.name = nameError
 
-  // 2. 回程日期不得早於出發日期
-  const dateOrderError = isDateOrderValid(form.startDate, form.endDate, '回程日期不能早於出發日期')
-  if (dateOrderError) errors.endDate = dateOrderError
+  // 2. 出發日期必填 (依據需求，確保系統能精確推算 Day 1 ~ Day N)
+  const startError = isRequired(form.startDate, '出發日期')
+  if (startError) errors.startDate = startError
+
+  // 3. 回程日期必填
+  const endError = isRequired(form.endDate, '回程日期')
+  if (endError) errors.endDate = endError
+
+  // 4. 回程日期不得早於出發日期 (僅在兩者皆已填寫時進行比較)
+  if (!startError && !endError) {
+    const dateOrderError = isDateOrderValid(form.startDate, form.endDate, '回程日期不能早於出發日期')
+    if (dateOrderError) errors.endDate = dateOrderError
+  }
 
   return errors
 }

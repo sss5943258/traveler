@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-09-16
+
+### Added
+- **ASP.NET Core RESTful 多環境切換適配器架構 (`src/config.js`, `src/services/apiService.js`, `src/services/authService.js`)**：
+  - 新增 `ENV` 全域配置（`'LOCAL' | 'RENDER' | 'GAS'`），支援本機 .NET Core 端點、雲端 Render 端點與 Google Apps Script 無縫熱切換。
+  - 採用 Adapter 模式，將前端所有行程、行李清單、共編者與航班資訊操作轉換為標準 RESTful HTTP 動詞（`GET`, `POST`, `PUT`, `DELETE`, `PATCH`），並於 Header 自動帶入 `Authorization: Bearer <token>`。
+- **Google OAuth 2.0 雙層身分驗證與無感自動刷新流程 (`src/services/authService.js`, `src/stores/authStore.js`)**：
+  - 串接後端 `/api/auth/google`、`/api/auth/refresh` 與 `/api/auth/logout`。
+  - 於 Zustand `authStore` 管理短效 JWT 與長效 Refresh Token，並由 `api.js` 攔截器在 Token 剩餘 60 秒前自動背景換發，提供無感流暢的操作體驗。
+
+### Changed
+- **行程新增與備案資料結構標準化與資料淨化 (Data Sanitization) (`src/services/apiService.js`, `src/components/ScheduleFormModal.jsx`, `src/components/TripPage.jsx`)**：
+  - 在 `apiService.addSchedule` 導入 UUID 格式校驗：自動過濾非標準 36 碼 UUID 的前端暫時時間戳字串，自動將其淨化為 `null` 傳送給後端由 PostgreSQL 生成正式 GUID，徹底杜絕 .NET Core 反序列化失敗問題。
+  - 調整 `ScheduleFormModal`：僅在明確新增備案卡片時才繼承原目標之 `groupId`，新建主行程時不隨意填充前端暫時字串。
+  - 調整 `TripPage` 的 `handleCopySchedule`：複製行程時將 `groupId` 傳入 `null`，交由後端生成全新 UUID 群組。
+  - 儲存行程卡片後，狀態同步自動以伺服器回傳的真實 `id` 與 `groupId` 更新 React `journeys` 本地狀態。
+
+### Fixed
+- **修復後端非 JSON 錯誤回應導致的 `Unexpected token` 掩蓋問題 (`src/services/authService.js`)**：
+  - 在 `netCorePost` 改用 `res.text()` 先行讀取回應文字再進行 `JSON.parse()` 容錯解析；當後端噴出 500 或 Npgsql 異常純文字時，直接呈現在畫面錯誤提示，避免被瀏覽器原生 JSON 解析錯誤（`Unexpected token 'N'... is not valid JSON`）蓋台。
+- **修復 ScheduleFormModal 變數未定義錯誤 (`src/components/ScheduleFormModal.jsx`)**：
+  - 補齊 `currentAlt` 變數宣告（`isEdit ? item.altOrder : (altOrder || 0)`），修復點擊儲存卡片時觸發之 `currentAlt is not defined` ReferenceError。
+
+---
+
 ## [0.10.0] - 2026-09-14
 
 ### Added

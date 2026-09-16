@@ -76,7 +76,9 @@ export default function NewTripModal({ onClose, onCreated }) {
 
             <div className="form-row">
               <div className="form-group">
-                <label>出發日期</label>
+                <label>
+                  出發日期 <span className="required">*</span>
+                </label>
                 <input
                   type="date"
                   name="startDate"
@@ -87,7 +89,9 @@ export default function NewTripModal({ onClose, onCreated }) {
                 {errors.startDate && <span className="field-error-text">{errors.startDate}</span>}
               </div>
               <div className="form-group">
-                <label>回程日期</label>
+                <label>
+                  回程日期 <span className="required">*</span>
+                </label>
                 <input
                   type="date"
                   name="endDate"

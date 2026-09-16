@@ -117,15 +117,32 @@ export const apiService = {
 
   /**
    * 建立新的旅行計畫
-   * @param {Object} tripDto { name, startDate, endDate, ... }
+   * 
+   * [React 觀念解析 - API 適配與向後相容 (Payload Normalization)]
+   * 1. 為了確保無論後端 GAS 腳本是讀取頂層屬性 (payload.name) 或讀取 data 物件 (payload.data.name)，
+   *    載荷同時注入兩者，達成 100% 向後與向前相容。
+   * 2. 接收到回應後，自動檢查並標準化回傳的 tripId，確保呼叫端 (NewTripModal, HomePage)
+   *    可直接透過 res.tripId 取得新建的行程 ID 進行頁面導向。
+   * 
+   * @param {Object} tripDto { name, startDate, endDate }
+   * @returns {Promise<Object>} 建立結果物件 (含 tripId 與 readOnlyId)
    */
   async createTrip(tripDto) {
-    return await sendRequest({
+    const res = await sendRequest({
       actionName: 'createTrip',
       path: '/trips',
       method: 'POST',
-      payload: tripDto
+      payload: {
+        ...tripDto,
+        data: tripDto, // 雙重兼容：供讀取 payload.data 的舊版或過渡期 GAS 腳本存取
+      },
     })
+
+    // 標準化 tripId：若後端回傳結構為 { data: { tripId } } 則提至頂層
+    if (res && res.data && res.data.tripId && !res.tripId) {
+      res.tripId = res.data.tripId
+    }
+    return res
   },
 
   /**
@@ -149,7 +166,7 @@ export const apiService = {
   async getCollaborators(tripId) {
     return await sendRequest({
       actionName: 'getCollaborators',
-      path: `tripId=${encodeURIComponent(tripId)}`,
+      path: API_MODE === 'GAS' ? `tripId=${encodeURIComponent(tripId)}` : `/trips/${tripId}/collaborators`,
       method: 'GET'
     })
   },
@@ -163,6 +180,7 @@ export const apiService = {
   async addCollaborator(tripId, email) {
     return await sendRequest({
       actionName: 'addCollaborator',
+      path: API_MODE === 'GAS' ? '' : `/trips/${tripId}/collaborators`,
       method: 'POST',
       payload: { tripId, email }
     })
@@ -177,21 +195,41 @@ export const apiService = {
   async removeCollaborator(tripId, email) {
     return await sendRequest({
       actionName: 'removeCollaborator',
-      method: 'POST',
+      path: API_MODE === 'GAS' ? '' : `/trips/${tripId}/collaborators/${encodeURIComponent(email)}`,
+      method: API_MODE === 'GAS' ? 'POST' : 'DELETE',
       payload: { tripId, email }
     })
   },
 
   /**
    * 新增行程卡片或彈性備案
+   * 
+   * [React 小白觀念解析 - API 適配與資料淨化 (Data Sanitization)]
+   * 在 GAS 舊架構中，前端為了渲染流暢會先自己生成一個時間戳字串 (例如 "t3-d1-1773634250000") 作為暫時的 groupId；
+   * 但後端 .NET Core 與 PostgreSQL 的 GroupId 是強型別 UUID (GUID)。
+   * 如果將非 UUID 的字串傳給 .NET Core 就會報出 "The JSON value could not be converted..." 反序列化失敗。
+   * 因此在此處進行「資料淨化」：
+   * 1. 檢查 groupId 是否為符合標準 36 字元的 UUID 格式。
+   * 2. 若不是合法 UUID (代表是新建主行程或前端暫時字串)，則轉為 null 傳送，讓後端資料庫自動生成乾淨合法的 GUID。
+   * 3. 若是為既有行程新增備案 (例如已有合法的 UUID)，則保留該 UUID 傳送給後端綁定為同一個行程群組。
+   * 
    * @param {Object} scheduleDto { tripId, day, date, groupId, altOrder, attractionName, startTime, endTime, remark, googleMapLink }
    */
   async addSchedule(scheduleDto) {
+    const isGuid =
+      typeof scheduleDto.groupId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scheduleDto.groupId)
+
+    const payload = {
+      ...scheduleDto,
+      groupId: isGuid ? scheduleDto.groupId : null,
+    }
+
     return await sendRequest({
       actionName: 'addSchedule',
       path: '/schedules',
       method: 'POST',
-      payload: scheduleDto
+      payload: API_MODE === 'GAS' ? scheduleDto : payload,
     })
   },
 
