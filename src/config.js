@@ -1,3 +1,5 @@
+import packageJson from '../package.json';
+
 /**
  * 系統環境與 API 後端模式配置 (API Environment & Mode Configuration)
  * 
@@ -6,6 +8,12 @@
  * - 'LOCAL': 本地端 ASP.NET Core 後端 (http://localhost:5005/api)
  * - 'RENDER': 雲端 Render ASP.NET Core 後端 (https://travel-app-api-h5ix.onrender.com/api)
  */
+/**
+ * 應用程式版本號 (Application Version)
+ * 自動讀取 package.json 中的 version 欄位，確保前後版本資訊同步一致
+ */
+export const APP_VERSION = packageJson.version || '1.0.0';
+
 // ── 系統環境判定 ──────────────────────────────────────────────────
 // 1. 優先讀取 .env 的 VITE_ENV ('GAS' | 'LOCAL' | 'RENDER')
 // 2. 若未手動指定，依據打包模式自動切換：

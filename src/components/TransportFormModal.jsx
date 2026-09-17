@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Trash2, Loader } from 'lucide-react'
+import { X, Loader } from 'lucide-react'
 import { Checkbox, message } from 'antd'
 import { apiService } from '../services/apiService'
 import './Modals.css'
@@ -266,7 +266,6 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
             onClick={handleClear}
             disabled={isSaving}
           >
-            <Trash2 size={15} />
             清除交通資訊
           </button>
         ) : <div />}

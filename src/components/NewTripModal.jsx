@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Save, Loader, Plane } from 'lucide-react'
+import { X, Loader } from 'lucide-react'
 import { apiService } from '../services/apiService'
 import { validateTripForm, hasErrors } from '../utils/validator'
 import './Modals.css'
@@ -113,7 +113,7 @@ export default function NewTripModal({ onClose, onCreated }) {
             取消
           </button>
           <button type="submit" form="newTripForm" className="btn-save" disabled={isSaving}>
-            {isSaving ? <Loader size={16} className="spin-icon" /> : <Plane size={16} />}
+            {isSaving && <Loader size={16} className="spin-icon" />}
             {isSaving ? '建立中...' : '建立行程'}
           </button>
         </div>

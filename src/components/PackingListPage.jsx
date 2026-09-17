@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, X, Save, Star, Loader } from 'lucide-react'
+import { X, Star, Loader } from 'lucide-react'
 import { apiService } from '../services/apiService'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import './PackingListPage.css'
@@ -106,7 +106,7 @@ function AddItemModal({ onClose, onAdd, isSaving }) {
             取消
           </button>
           <button type="submit" form="addPackingItemForm" className="btn-save" disabled={isSaving}>
-            {isSaving ? <Loader size={16} className="spin-icon" /> : <Save size={16} />}
+            {isSaving && <Loader size={16} className="spin-icon" />}
             {isSaving ? '新增中...' : '新增'}
           </button>
         </div>
@@ -304,7 +304,6 @@ export default function PackingListPage({ onBack }) {
           onClick={() => setShowAddModal(true)}
           disabled={isLoading}
         >
-          <Plus size={24} />
           <span>新增品項</span>
         </button>
       </footer>

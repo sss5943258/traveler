@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Clock, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import './Modals.css';
 
 /**
@@ -32,12 +32,7 @@ export default function ConflictModal({
         {/* 彈窗標頭 */}
         <div className="form-modal-header">
           <div>
-            <h2 className="modal-title flex items-center gap-2 text-amber-600">
-              {isAdjustable ? (
-                <Clock size={22} className="text-amber-500" />
-              ) : (
-                <AlertTriangle size={22} className="text-red-500" />
-              )}
+            <h2 className="modal-title text-amber-600" style={{ margin: 0 }}>
               {isAdjustable ? '行程時間衝突調整' : '行程時間嚴重衝突'}
             </h2>
           </div>

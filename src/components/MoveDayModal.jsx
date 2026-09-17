@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { X, Calendar, ArrowRightLeft } from 'lucide-react'
+import { X, Calendar } from 'lucide-react'
 import './Modals.css'
 
 /**
@@ -20,8 +20,7 @@ export default function MoveDayModal({ item, currentDay, journeys = [], onSelect
         {/* 彈窗頂部 */}
         <div className="form-modal-header">
           <div>
-            <h2 className="modal-title flex items-center gap-2">
-              <ArrowRightLeft size={20} className="text-[var(--primary-dark)]" />
+            <h2 className="modal-title">
               移動行程至其他天
             </h2>
             <p className="modal-subtitle">

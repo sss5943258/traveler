@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-17
+
+### Added
+- **應用程式動態版本號顯示 (`src/config.js`, `src/components/LogoutConfirmModal.jsx`)**：
+  - 於 `src/config.js` 導出 `APP_VERSION`（動態同步自 `package.json`）。
+  - 在「確認登出」彈跳視窗底部左側展示版號，並加入嚴格防換行佈局，確保各尺寸裝置皆能整齊對齊。
+
+### Changed
+- **確認彈窗架構統一與視覺體驗升級 (`src/components/LogoutConfirmModal.jsx`, `src/components/DeleteConfirmModal.jsx`, `src/components/Modals.css`)**：
+  - 重構「確認登出」與「確認刪除」彈窗，套用專案標準 Header / Body / Footer 三段式毛玻璃佈局，取消過去置中大圖示舊版樣式。
+  - 大幅增加確認彈窗 Body 上下 Padding（桌面版提升至 `2.25rem`，手機版保證 `1.75rem`），解除過去提示內文緊夾於頂底之間的壓迫感。
+- **全域按鈕內距加強與圓角優化 (`src/theme.js`, `src/components/Modals.css`)**：
+  - 加大所有預設按鈕的外框 Padding 與點擊熱區。
+  - 全域 Ant Design 主題與專案按鈕圓角全面調整為 `8px`（`borderRadius: 8`），柔化按鈕線條，消除生硬鋒利感。
+- **介面極簡化：移除所有文字按鈕與彈窗標題之裝飾性圖示**：
+  - 移除各彈窗標題（`LogoutConfirmModal`, `DeleteConfirmModal`, `ConflictModal`, `MoveDayModal`, `CollaboratorsModal`）前置的裝飾性 Icon，呈現純粹洗鍊的標題排版。
+  - 移除所有帶文字按鈕（如新增行程、新增品項、建立、儲存、確認刪除、更換圖片等）內的裝飾性圖示。
+  - 嚴格保留按鈕執行時的 Loading 旋轉動畫（`Loader`）、純功能性 Icon 按鈕（關閉 `X`、返回 `ArrowLeft`、純圖示按鈕）及下拉選單（`.card-menu-dropdown`、分享選單等）的圖示。
+
+### Fixed
+- **手機版航班編輯與通用 Modal 滾動及 Footer 跑版修復 (`src/components/TripInfoFormModal.jsx`, `src/components/Modals.css`)**：
+  - 重構 `TripInfoFormModal` 為標準 Flex 三段式自適應容器，Footer 按鈕吸底固定，修復在手機上內容溢出、滾動穿透與按鈕被切掉的問題。
+  - 修正 Ant Design `DatePicker` 與 `TimePicker` 在窄螢幕寬度不足導致的時間欄位擠壓重疊問題，手機版強制單欄滿寬垂直排列。
+
+---
+
 ## [1.0.0] - 2026-09-16
 
 ### Added

@@ -182,16 +182,11 @@ export default function CollaboratorsModal({ trip, onClose }) {
       maskClosable={!isSubmitting && !removingEmail}
       className="collaborators-modal"
       title={
-        <div className="flex items-center gap-2.5 text-base font-semibold text-[var(--text-main,#2C2A29)]">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[rgba(88,63,36,0.08)] text-[var(--primary,#583f24)]">
-            <Users size={18} />
-          </div>
-          <div className="flex flex-col">
-            <span>編輯共編者</span>
-            <span className="text-xs font-normal text-[var(--text-muted,#78716c)] truncate max-w-[340px]">
-              {tripName}
-            </span>
-          </div>
+        <div className="flex flex-col text-base font-semibold text-[var(--text-main,#2C2A29)]">
+          <span>編輯共編者</span>
+          <span className="text-xs font-normal text-[var(--text-muted,#78716c)] truncate max-w-[340px]">
+            {tripName}
+          </span>
         </div>
       }
     >
@@ -217,9 +212,8 @@ export default function CollaboratorsModal({ trip, onClose }) {
               type="primary"
               onClick={handleAddCollaborator}
               loading={isSubmitting}
-              className="h-10 px-4 rounded-lg font-medium bg-[var(--primary,#583f24)] hover:!bg-[var(--primary-dark,#432f1a)] border-none text-white shrink-0 flex items-center justify-center gap-1.5"
+              className="h-10 px-4 rounded-lg font-medium bg-[var(--primary,#583f24)] hover:!bg-[var(--primary-dark,#432f1a)] border-none text-white shrink-0 flex items-center justify-center"
             >
-              <UserPlus size={16} />
               <span>新增</span>
             </Button>
           </div>

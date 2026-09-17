@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Save, Loader } from 'lucide-react'
+import { X, Loader } from 'lucide-react'
 import { TimePicker } from 'antd'
 import dayjs from 'dayjs'
 import { apiService } from '../services/apiService'
@@ -319,7 +319,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
           </button>
         )}
         <button type="submit" form="scheduleForm" className="btn-save" disabled={isSaving}>
-          {isSaving ? <Loader size={16} className="spin-icon" /> : <Save size={16} />}
+          {isSaving && <Loader size={16} className="spin-icon" />}
           {isSaving ? '儲存中...' : '儲存'}
         </button>
       </div>

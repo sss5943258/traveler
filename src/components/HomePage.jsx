@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Loader, Plane, CheckSquare, ChevronRight, Plus, Trash2, LogOut, Users } from 'lucide-react'
+import { Loader, Plane, CheckSquare, ChevronRight, Trash2, LogOut, Users } from 'lucide-react'
 import { message, Tag } from 'antd'
 import { apiService } from '../services/apiService'
 import { useAuthStore } from '../stores/authStore'
@@ -431,7 +431,6 @@ function HomePage({ onSelectTrip, onOpenPackingList }) {
             onClick={() => setShowNewTripModal(true)}
             title="新增行程"
           >
-            <Plus size={24} />
             <span>新增行程</span>
           </button>
         </div>
