@@ -385,12 +385,16 @@ function getTripDetails(id, userId) {
   let tripId = id; // 用於後續查詢 Schedules 的真實 tripId
 
   if (trip) {
-    // 使用真實 tripId 查詢：必須驗證是否為 owner 或共編者
-    if (!trip.userId && userId) {
+    // 使用真實 tripId 查詢：必須具備登入身分且為 owner 或共編者 (匿名存取僅限於 readOnlyId)
+    if (!userId) {
+      return { error: '無權限存取此旅程' };
+    }
+
+    if (!trip.userId) {
       // 舊資料自動綁定
       isTripOwner(trip.tripId, userId);
       trip.userId = userId;
-    } else if (trip.userId && String(trip.userId) !== String(userId)) {
+    } else if (String(trip.userId) !== String(userId)) {
       // 若不是 owner，檢查是否為共編者
       const isCollab = isTripCollaborator(trip.tripId, userId);
       if (!isCollab) {

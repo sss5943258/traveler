@@ -128,10 +128,14 @@ export const cachedFetch = async (url, options = {}) => {
   }
 
   // ── GET 請求 ──
-  // 1. 同一瞬間重複請求去重：若當前已有相同的 URL 請求在進行中，直接共用同一個 Promise
-  if (_inflightRequests.has(url)) {
+  // 1. 同一瞬間重複請求去重：
+  // 將 Authorization Header 與 URL 組合為 requestKey，依身分上下文分區（防止跨使用者共享 pending response，CWE-488）
+  const authHeader = (options.headers && (options.headers.Authorization || options.headers.authorization)) || ''
+  const requestKey = `${authHeader}::${url}`
+
+  if (_inflightRequests.has(requestKey)) {
     try {
-      const text = await _inflightRequests.get(url)
+      const text = await _inflightRequests.get(requestKey)
       return makeMockResponse(text)
     } catch (err) {
       throw err
@@ -149,13 +153,13 @@ export const cachedFetch = async (url, options = {}) => {
   })
 
   // 記錄至 in-flight Map 中
-  _inflightRequests.set(url, fetchPromise)
+  _inflightRequests.set(requestKey, fetchPromise)
   try {
     const text = await fetchPromise
-    _inflightRequests.delete(url)
+    _inflightRequests.delete(requestKey)
     return makeMockResponse(text)
   } catch (err) {
-    _inflightRequests.delete(url)
+    _inflightRequests.delete(requestKey)
     throw err
   }
 }

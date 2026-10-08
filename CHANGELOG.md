@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-10-08
+
+### Security
+- **API 並發請求快取依 Authorization 標頭身分分區 (`src/utils/api.js`) (CWE-488)**：
+  - 修復 `cachedFetch` 中的 `_inflightRequests` 去重快取鍵值未隔離身分之漏洞，改為以 `${authHeader}::${url}` 作為唯一識別鍵，防止跨使用者或未授權訪客共享 pending 響應資料。
+- **TripId 查詢未登入匿名存取守衛 (`backend/TripsService.gs`) (CWE-639)**：
+  - 於 `getTripDetails` 查詢路徑加入 `if (!userId)` 檢查，防範匿名訪客直接透過真實 `tripId` 存取未綁定擁有者的歷史舊資料列，確立僅 `ReadOnlyId` 支援匿名唯讀之安全架構。
+
+### Fixed
+- **時間衝突分析演算法修復新卡片完全內嵌判定 (`src/utils/timeSortUtils.js`, `backend/SchedulesService.gs`)**：
+  - 在 `sStart < nStart` 分支中加入 `if (nEnd < sEnd)` 條件判定；當新卡片完全落在既有卡片時間區間內部時，判定為 `SEVERE` 嚴重衝突，避免原邏輯誤判為可推移而將既有卡片尾段時間截斷抹除。
+- **唯讀檢視模式下航班與行程備註文字完整展示修復 (`src/components/TripPage.jsx`)**：
+  - 修復訪客於唯讀模式（`isReadOnly === true`）下無法開啟編輯彈窗導致備註長文字遭 `truncateText` 截斷的問題，唯讀模式自動展開全文，並修正 `whitespace-pre-line` 與斷詞樣式。
+
+### Documentation
+- **架構設計與時序圖安全校準 (`ARCHITECTURE.md`)**：
+  - 新增並完整梳理前端技術架構、資料流、ACL 權限時序圖與衝突分析邏輯，並同步修正未授權訪客存取 `TripId` 時應回傳 403 拒絕存取之設計規範。
+
+---
+
 ## [1.0.1] - 2026-09-17
 
 ### Added

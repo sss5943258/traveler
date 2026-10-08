@@ -38,9 +38,9 @@ export const minutesToTime = (totalMinutes) => {
  * 衝突類型說明：
  * - 'NONE': 無時間重疊，可以直接依起始時間插入並自動排序。
  * - 'ADJUSTABLE': 與單一卡片衝突，且可透過調整該卡片的起始時間 (startTime) 或結束時間 (endTime) 來解決。
- *   1) 若 targetCard 開頭被 newCard 覆蓋 (sStart >= nStart)：嘗試將 targetCard 的 startTime 延後至 newCard.endTime (nEnd)。
- *   2) 若 targetCard 結尾被 newCard 覆蓋 (sStart < nStart)：嘗試將 targetCard 的 endTime 提前至 newCard.startTime (nStart)。
- * - 'SEVERE': 衝突無法透過時間調整解決或同時與多張卡片衝突。
+ *   1) 若 targetCard 開頭被 newCard 覆蓋 (sStart >= nStart 且 nEnd < sEnd)：嘗試將 targetCard 的 startTime 延後至 newCard.endTime (nEnd)。
+ *   2) 若 targetCard 結尾被 newCard 覆蓋 (sStart < nStart 且 nEnd >= sEnd)：嘗試將 targetCard 的 endTime 提前至 newCard.startTime (nStart)。
+ * - 'SEVERE': 衝突無法透過時間調整解決（例如新舊卡片互相完全包覆）或同時與多張卡片衝突。
  *
  * @param {Object} newCard - 新增或編輯的行程卡片物件 { id, startTime, endTime, title, ... }
  * @param {Array} daySchedules - 當天已有的行程資料陣列
@@ -115,8 +115,16 @@ export const analyzeTimeConflict = (newCard, daySchedules = []) => {
       };
     }
   } else {
-    // 2) targetCard 起始時間在 newCard 起始時間之前 -> 調整 targetCard 的 endTime 至 nStart
-    if (nStart > sStart) {
+    // 2) targetCard 起始時間在 newCard 起始時間之前 (sStart < nStart)
+    // 若 newCard 完全內嵌於 targetCard 內部 (nEnd < sEnd)，無法單純藉由縮減 endTime 解決 (會遺失 nEnd ~ sEnd 區段)，判定為嚴重衝突
+    if (nEnd < sEnd) {
+      return {
+        status: 'SEVERE',
+        targetCard,
+        conflictedCardTitle: targetTitle
+      };
+    } else {
+      // targetCard 尾端被 newCard 覆蓋 (nEnd >= sEnd) -> 調整 targetCard 的 endTime 至 nStart
       const proposedNewEndTime = minutesToTime(nStart);
       return {
         status: 'ADJUSTABLE',
@@ -125,12 +133,6 @@ export const analyzeTimeConflict = (newCard, daySchedules = []) => {
         adjustType: 'END_TIME',
         proposedNewTime: proposedNewEndTime,
         proposedField: 'endTime'
-      };
-    } else {
-      return {
-        status: 'SEVERE',
-        targetCard,
-        conflictedCardTitle: targetTitle
       };
     }
   }

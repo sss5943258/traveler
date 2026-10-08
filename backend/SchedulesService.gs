@@ -103,7 +103,17 @@ function gasAnalyzeTimeConflict(newCard, daySchedules) {
       };
     }
   } else {
-    if (nStart > sStart) {
+    // 2) targetCard 起始時間在 newCard 起始時間之前 (sStart < nStart)
+    // 若 newCard 完全內嵌於 targetCard 內部 (nEnd < sEnd)，無法僅縮減結束時間解決，判定為嚴重衝突
+    if (nEnd < sEnd) {
+      return {
+        status: 'SEVERE',
+        targetCard: targetCard,
+        targetCardId: targetCard.id,
+        conflictedCardTitle: targetTitle
+      };
+    } else {
+      // targetCard 結尾被 newCard 覆蓋 -> 調整 targetCard 的 endTime 至 nStart
       var proposedNewEndTime = gasMinutesToTime(nStart);
       return {
         status: 'ADJUSTABLE',
@@ -113,13 +123,6 @@ function gasAnalyzeTimeConflict(newCard, daySchedules) {
         adjustType: 'END_TIME',
         proposedNewTime: proposedNewEndTime,
         proposedField: 'endTime'
-      };
-    } else {
-      return {
-        status: 'SEVERE',
-        targetCard: targetCard,
-        targetCardId: targetCard.id,
-        conflictedCardTitle: targetTitle
       };
     }
   }

@@ -14,12 +14,7 @@ import MoveDayModal from './MoveDayModal'
 import { timeToMinutes } from '../utils/timeSortUtils'
 import './TripPage.css'
 
-// 輔助函式：簡化過長文字
-const truncateText = (text, maxLength = 80) => {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
-};
+
 
 // 輔助函式：格式化日期時間為 yyyy/MM/dd HH:mm
 const formatDisplayDatetime = (val) => {
@@ -1616,9 +1611,11 @@ export default function TripPage({ tripId, onBack }) {
                           </span>
                         </div>
                         <hr className="card-divider mt-3 border-t border-dashed border-[var(--glass-border)]" />
-                        <div className="flight-remark-wrap flex gap-1 text-xs text-[var(--text-muted)] mt-2">
+                        <div className="flight-remark-wrap flex gap-1 text-xs text-[var(--text-muted)] mt-2 min-w-0">
                           <Info size={14} className="shrink-0 mt-0.5" />
-                          <span className="remark-text white-space-pre-line">{tripsInfo.outboundFlightRemark ? truncateText(tripsInfo.outboundFlightRemark, 80) : '（無去程班機備註）'}</span>
+                          <span className={`remark-text whitespace-pre-line break-words min-w-0 ${isReadOnly ? '' : 'line-clamp-2'}`}>
+                            {tripsInfo.outboundFlightRemark || '（無去程班機備註）'}
+                          </span>
                         </div>
                       </div>
                     ) : (
@@ -1687,9 +1684,11 @@ export default function TripPage({ tripId, onBack }) {
                           </span>
                         </div>
                         <hr className="card-divider mt-3 border-t border-dashed border-[var(--glass-border)]" />
-                        <div className="flight-remark-wrap flex gap-1 text-xs text-[var(--text-muted)] mt-2">
+                        <div className="flight-remark-wrap flex gap-1 text-xs text-[var(--text-muted)] mt-2 min-w-0">
                           <Info size={14} className="shrink-0 mt-0.5" />
-                          <span className="remark-text white-space-pre-line">{tripsInfo.inboundFlightRemark ? truncateText(tripsInfo.inboundFlightRemark, 80) : '（無回程班機備註）'}</span>
+                          <span className={`remark-text whitespace-pre-line break-words min-w-0 ${isReadOnly ? '' : 'line-clamp-2'}`}>
+                            {tripsInfo.inboundFlightRemark || '（無回程班機備註）'}
+                          </span>
                         </div>
                       </div>
                     ) : (
@@ -1742,9 +1741,11 @@ export default function TripPage({ tripId, onBack }) {
                           )}
                         </div>
                         <hr className="card-divider mt-2 border-t border-dashed border-[var(--glass-border)]" />
-                        <div className="flight-remark-wrap flex gap-2 text-sm mt-2 text-[var(--text-main)]">
+                        <div className="flight-remark-wrap flex gap-2 text-sm mt-2 text-[var(--text-main)] min-w-0">
                           <Info size={16} className="shrink-0 mt-0.5 text-[var(--text-muted)]" />
-                          <span className="remark-text whitespace-pre-line leading-relaxed">{truncateText(tripsInfo.tripRemark, 120)}</span>
+                          <span className={`remark-text whitespace-pre-line leading-relaxed break-words min-w-0 ${isReadOnly ? '' : 'line-clamp-2'}`}>
+                            {tripsInfo.tripRemark}
+                          </span>
                         </div>
                       </div>
                     ) : (
