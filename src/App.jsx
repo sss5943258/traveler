@@ -116,9 +116,27 @@ export default function App() {
     );
   };
 
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  // App 初始化完成前暫不渲染，避免畫面閃爍
+  if (!isInitialized) {
+    return null;
+  }
+
+  // 1. 若網址帶有 ?id=xxx (activeTripId 存在)，無論是否登入皆直接顯示 TripPage
+  //    未登入者會由 TripPage 與後端 API 自動以唯讀模式 (isReadOnly = true) 呈現
+  //    當訪客在 TripPage 點擊「回首頁」時，handleBackToHome 清空 activeTripId，若未登入會自動導向 LoginPage
+  if (activeTripId) {
+    return (
+      <ConfigProvider theme={customTheme}>
+        <TripPage tripId={activeTripId} onBack={handleBackToHome} />
+      </ConfigProvider>
+    );
+  }
+
+  // 2. 其餘頁面 (首頁、攜帶清單頁)：透過 ProtectedRoute 守衛，未登入顯示 LoginPage
   return (
     <ConfigProvider theme={customTheme}>
-      {/* ProtectedRoute：未登入顯示 LoginPage，已登入顯示主內容 */}
       <ProtectedRoute fallback={<LoginPage />}>
         {renderMainContent()}
       </ProtectedRoute>

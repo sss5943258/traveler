@@ -22,7 +22,7 @@ import './Modals.css'
  * @param {Function} props.onSaved 當資料儲存成功時觸發的回呼函式，會傳回儲存後的行程資料與最新排序
  * @param {Function} props.onCancel 當點擊「取消」或關閉時觸發的回呼函式
  */
-export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId, daySchedules = [], setActionLoading, onSaved, onCancel }) {
+export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId, daySchedules = [], setActionLoading, onSaved, onCancel, isReadOnly = false }) {
   const isEdit = mode === 'edit'
 
   // form 狀態：儲存表單各個輸入欄位的值
@@ -83,6 +83,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
    * handleChange 欄位變更處理函式
    */
   const handleChange = (e) => {
+    if (isReadOnly) return
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) {
@@ -94,6 +95,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
    * saveScheduleToServer 實際發送 API 儲存與處理後端衝突回應之函式
    */
   const saveScheduleToServer = async (extraPayload = {}) => {
+    if (isReadOnly) return
     setIsSaving(true)
     if (setActionLoading) setActionLoading('儲存中...')
     setApiError(null)
@@ -196,6 +198,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
    */
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isReadOnly) return
     const formErrors = validateScheduleForm(form)
     if (hasErrors(formErrors)) {
       setErrors(formErrors)
@@ -232,7 +235,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
       <div className="form-modal-header">
         <div>
           <h2 className="modal-title">
-            {mode === 'edit' ? '編輯行程' : mode === 'addBackup' ? '新增彈性備案' : '新增行程'}
+            {isReadOnly ? '行程詳細資訊' : (mode === 'edit' ? '編輯行程' : mode === 'addBackup' ? '新增彈性備案' : '新增行程')}
           </h2>
           {isEdit && <p className="modal-subtitle">{item.day === 0 ? '旅程資訊' : `Day ${item.day} · ${item.date}`}</p>}
           {mode === 'addBackup' && <p className="modal-subtitle">Day {item.day} · {item.date} (主行程: {item.attractionName})</p>}
@@ -255,6 +258,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
               name="attractionName"
               value={form.attractionName}
               onChange={handleChange}
+              disabled={isReadOnly}
               placeholder="例：清水寺 (景點)"
               className={errors.attractionName ? 'input-has-error' : ''}
             />
@@ -267,6 +271,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
             <TimePicker.RangePicker
               format="HH:mm"
               minuteStep={5}
+              disabled={isReadOnly}
               placeholder={['開始時間 (必填)', '結束時間 (必填)']}
               allowEmpty={[false, false]}
               value={[
@@ -292,6 +297,7 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
               name="remark"
               value={form.remark}
               onChange={handleChange}
+              disabled={isReadOnly}
               placeholder="補充說明、交通方式、注意事項..."
             />
           </div>
@@ -303,8 +309,19 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
               name="googleMapLink"
               value={form.googleMapLink}
               onChange={handleChange}
+              disabled={isReadOnly}
               placeholder="https://maps.app.goo.gl/..."
             />
+            {form.googleMapLink && (
+              <a
+                href={form.googleMapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[var(--primary)] hover:underline mt-1 inline-block"
+              >
+                在 Google 地圖中開啟 ↗
+              </a>
+            )}
           </div>
 
           {apiError && <p className="form-error">{apiError}</p>}
@@ -315,13 +332,15 @@ export function ScheduleForm({ mode, item, day, date, groupId, altOrder, tripId,
       <div className="form-modal-footer">
         {onCancel && (
           <button type="button" className="btn-cancel" onClick={onCancel} disabled={isSaving}>
-            取消
+            {isReadOnly ? '關閉' : '取消'}
           </button>
         )}
-        <button type="submit" form="scheduleForm" className="btn-save" disabled={isSaving}>
-          {isSaving && <Loader size={16} className="spin-icon" />}
-          {isSaving ? '儲存中...' : '儲存'}
-        </button>
+        {!isReadOnly && (
+          <button type="submit" form="scheduleForm" className="btn-save" disabled={isSaving}>
+            {isSaving && <Loader size={16} className="spin-icon" />}
+            {isSaving ? '儲存中...' : '儲存'}
+          </button>
+        )}
       </div>
 
       {/* 衝突確認彈窗 */}

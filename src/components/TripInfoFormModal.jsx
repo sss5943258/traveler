@@ -34,7 +34,7 @@ const parseToDayjs = (val) => {
  * @param {Function} props.onSaved 當儲存成功時觸發的 callback 函式，會將更新的欄位回傳給父層元件
  * @param {Function} props.onCancel 當點擊「取消」或關閉時觸發的 callback 函式
  */
-export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
+export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel, isReadOnly = false }) {
   const isFlight = type === 'outbound' || type === 'inbound'
   const prefix = type === 'outbound' ? 'outbound' : 'inbound'
 
@@ -117,6 +117,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
    * @param {React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>} e 輸入框變更事件
    */
   const handleChange = (e) => {
+    if (isReadOnly) return
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
@@ -129,6 +130,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
    * @param {dayjs.Dayjs | null} date 選取的時間 Dayjs 物件 (點清除時為 null)
    */
   const handleDateChange = (fieldName, date) => {
+    if (isReadOnly) return
     setForm((prev) => ({
       ...prev,
       [fieldName]: date ? date.format('YYYY-MM-DD HH:mm') : ''
@@ -142,6 +144,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
    * @param {React.ChangeEvent<HTMLInputElement>} e 檔案選取事件
    */
   const handleImageSelect = (e) => {
+    if (isReadOnly) return
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -171,6 +174,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
    * 清除目前選取的檔案或資料庫現有圖片網址，並重設檔案輸入框的 value 避免重複選取同一檔案無反應
    */
   const handleRemoveImage = () => {
+    if (isReadOnly) return
     setImageFile(null)
     setImagePreview(null)
     setExistingImageUrl(null)
@@ -216,6 +220,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
    */
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isReadOnly) return
     setIsSaving(true)
     setError(null)
 
@@ -281,7 +286,9 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
       <div className="form-modal-header">
         <div>
           <h2 className="modal-title">
-            {type === 'outbound' ? '編輯去程航班' : type === 'inbound' ? '編輯回程航班' : '編輯行程備註'}
+            {isReadOnly
+              ? (type === 'outbound' ? '去程航班資訊' : type === 'inbound' ? '回程航班資訊' : '行程總備註')
+              : (type === 'outbound' ? '編輯去程航班' : type === 'inbound' ? '編輯回程航班' : '編輯行程備註')}
           </h2>
           <p className="modal-subtitle">旅程資訊</p>
         </div>
@@ -305,8 +312,9 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     name="flightNo"
                     value={form.flightNo}
                     onChange={handleChange}
+                    disabled={isReadOnly}
                     placeholder="例如：IT654"
-                    allowClear
+                    allowClear={!isReadOnly}
                   />
                 </div>
                 <div className="form-group">
@@ -315,8 +323,9 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     name="airline"
                     value={form.airline}
                     onChange={handleChange}
+                    disabled={isReadOnly}
                     placeholder="例如：虎航"
-                    allowClear
+                    allowClear={!isReadOnly}
                   />
                 </div>
               </div>
@@ -329,6 +338,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
                     minuteStep={5}
+                    disabled={isReadOnly}
                     value={parseToDayjs(form.departureTime)}
                     onChange={(date) => handleDateChange('departureTime', date)}
                     placeholder="請選擇起飛時間"
@@ -342,6 +352,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
                     minuteStep={5}
+                    disabled={isReadOnly}
                     value={parseToDayjs(form.arrivalTime)}
                     onChange={(date) => handleDateChange('arrivalTime', date)}
                     placeholder="請選擇抵達時間"
@@ -359,8 +370,9 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     name="depAirport"
                     value={form.depAirport}
                     onChange={handleChange}
+                    disabled={isReadOnly}
                     placeholder="例如：TPE (桃園)"
-                    allowClear
+                    allowClear={!isReadOnly}
                   />
                 </div>
                 <div className="form-group">
@@ -369,8 +381,9 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     name="arrAirport"
                     value={form.arrAirport}
                     onChange={handleChange}
+                    disabled={isReadOnly}
                     placeholder="例如：CJU (濟州)"
-                    allowClear
+                    allowClear={!isReadOnly}
                   />
                 </div>
               </div>
@@ -382,6 +395,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                   name="flightRemark"
                   value={form.flightRemark}
                   onChange={handleChange}
+                  disabled={isReadOnly}
                   placeholder="航班注意事項、行李重量限制等..."
                   rows={2}
                   autoSize={{ minRows: 2, maxRows: 4 }}
@@ -389,13 +403,15 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
               </div>
 
               {/* 隱藏的原生檔案選取器 */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                style={{ display: 'none' }}
-              />
+              {!isReadOnly && (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  style={{ display: 'none' }}
+                />
+              )}
 
               {/* 圖片上傳與預覽區域 */}
               {imagePreview ? (
@@ -408,46 +424,50 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                     title="點擊放大檢視"
                     style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
                   />
-                  <div className="image-preview-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <Button
-                      type="default"
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ flex: 1 }}
-                      size="small"
-                    >
-                      更換圖片
-                    </Button>
-                    <Button
-                      danger
-                      onClick={handleRemoveImage}
-                      style={{ flex: 1 }}
-                      size="small"
-                    >
-                      移除
-                    </Button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="image-preview-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <Button
+                        type="default"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{ flex: 1 }}
+                        size="small"
+                      >
+                        更換圖片
+                      </Button>
+                      <Button
+                        danger
+                        onClick={handleRemoveImage}
+                        style={{ flex: 1 }}
+                        size="small"
+                      >
+                        移除
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div
-                  className="image-upload-area"
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    width: '100%',
-                    height: '80px',
-                    border: '2px dashed var(--glass-border)',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    marginTop: '0.5rem',
-                    marginBottom: '0.5rem'
-                  }}
-                >
-                  <ImagePlus size={24} className="upload-icon" style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '8px' }}>上傳航班憑證 / 票券圖片</span>
-                </div>
+                !isReadOnly && (
+                  <div
+                    className="image-upload-area"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      width: '100%',
+                      height: '80px',
+                      border: '2px dashed var(--glass-border)',
+                      borderRadius: '4px',
+                      background: 'rgba(255, 255, 255, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      marginTop: '0.5rem',
+                      marginBottom: '0.5rem'
+                    }}
+                  >
+                    <ImagePlus size={24} className="upload-icon" style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '8px' }}>上傳航班憑證 / 票券圖片</span>
+                  </div>
+                )
               )}
             </>
           ) : (
@@ -457,6 +477,7 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
                 name="tripRemark"
                 value={form.tripRemark}
                 onChange={handleChange}
+                disabled={isReadOnly}
                 placeholder="在此填寫行前準備、行程備忘等資訊..."
                 rows={4}
                 autoSize={{ minRows: 4, maxRows: 8 }}
@@ -472,18 +493,20 @@ export function TripInfoForm({ type, tripId, initialData, onSaved, onCancel }) {
       <div className="form-modal-footer">
         {onCancel && (
           <Button onClick={onCancel} disabled={isSaving}>
-            取消
+            {isReadOnly ? '關閉' : '取消'}
           </Button>
         )}
-        <Button
-          type="primary"
-          htmlType="submit"
-          form="tripInfoForm"
-          loading={isSaving}
-          style={{ minWidth: '80px' }}
-        >
-          {isUploading ? '上傳圖片中...' : isSaving ? '儲存中...' : '儲存'}
-        </Button>
+        {!isReadOnly && (
+          <Button
+            type="primary"
+            htmlType="submit"
+            form="tripInfoForm"
+            loading={isSaving}
+            style={{ minWidth: '80px' }}
+          >
+            {isUploading ? '上傳圖片中...' : isSaving ? '儲存中...' : '儲存'}
+          </Button>
+        )}
       </div>
 
       {lightboxSrc && (

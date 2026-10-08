@@ -242,17 +242,24 @@ function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
   const meta = targetItem ? getTransportMeta(targetItem.transportType, targetItem.transportCustomName, 15) : null;
   const durationText = targetItem ? formatTransportDuration(targetItem.transportDurationMinutes) : '';
   const hasTransport = Boolean(meta);
+  const canClick = !isReadOnly || hasTransport;
+
+  const tooltipTitle = hasTransport
+    ? (targetItem.transportRemark ? `交通備註：${targetItem.transportRemark}` : (isReadOnly ? '點擊檢視交通資訊' : '點擊編輯交通方式'))
+    : (isReadOnly ? '' : '點擊新增交通方式');
 
   return (
     <div
-      className="transport-arrow-container cursor-pointer my-1.5 flex flex-col items-center justify-center transition-all group"
+      className={`transport-arrow-container my-1.5 flex flex-col items-center justify-center transition-all ${
+        canClick ? 'cursor-pointer group' : 'cursor-default'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
-        if (!isReadOnly && targetItem && onEditTransport) {
+        if (canClick && targetItem && onEditTransport) {
           onEditTransport(targetItem);
         }
       }}
-      title={hasTransport ? (targetItem.transportRemark ? `交通備註：${targetItem.transportRemark}` : '點擊編輯交通方式') : '點擊新增交通方式'}
+      title={tooltipTitle}
     >
       {hasTransport ? (
         <div className="flex flex-col items-center text-[var(--primary-dark)] hover:scale-105 transition-transform">
@@ -269,8 +276,8 @@ function TransportArrow({ targetItem, onEditTransport, isReadOnly }) {
           <ArrowDown size={15} className="opacity-75 text-[var(--primary-dark)]" />
         </div>
       ) : (
-        <div className="flex flex-col items-center opacity-40 hover:opacity-100 text-[var(--primary-dark)] transition-opacity py-1">
-          <span className="text-[10px] font-medium text-gray-500 hidden group-hover:block mb-0.5">新增交通</span>
+        <div className={`flex flex-col items-center text-[var(--primary-dark)] transition-opacity py-1 ${isReadOnly ? 'opacity-25' : 'opacity-40 hover:opacity-100'}`}>
+          {!isReadOnly && <span className="text-[10px] font-medium text-gray-500 hidden group-hover:block mb-0.5">新增交通</span>}
           <ArrowDown size={16} />
         </div>
       )}
@@ -797,6 +804,9 @@ export default function TripPage({ tripId, onBack }) {
   const [error, setError] = useState(null)                // 儲存資料加載時的異常訊息
   const [isReadOnly, setIsReadOnly] = useState(false)    // 是否為唯讀模式
 
+  // 有效且真實的 Trip ID (若由 readOnlyId 開啟，從後端回傳的 tripInfo.tripId 解析出真實 UUID，確保後續新增/修改/刪除正確落庫)
+  const effectiveTripId = tripInfo?.tripId || tripId;
+
   // --- 表單與操作狀態 ---
   const [actionLoading, setActionLoading] = useState(null)    // 全域快捷 API 操作加載提示 (如 '複製行程中...')
   const [remarkItem, setRemarkItem] = useState(null)      // 當前在手機版查看詳情備註的行程
@@ -980,7 +990,7 @@ export default function TripPage({ tripId, onBack }) {
     })
 
     try {
-      await apiService.updateScheduleOrder(tripId, selectedDay, newGroupOrder)
+      await apiService.updateScheduleOrder(effectiveTripId, selectedDay, newGroupOrder)
     } catch (err) {
       console.error('更新順序失敗:', err)
     }
@@ -1021,7 +1031,7 @@ export default function TripPage({ tripId, onBack }) {
 
       const newScheduleDto = {
         id: tempId,
-        tripId,
+        tripId: effectiveTripId,
         day: item.day,
         date: item.date,
         attractionName: item.attractionName || '',
@@ -1096,7 +1106,7 @@ export default function TripPage({ tripId, onBack }) {
     setActionLoading('調整備案順序中...')
     try {
       const orderedIds = items.map(i => i.id)
-      const res = await apiService.reorderGroupBackups(tripId, gid, orderedIds)
+      const res = await apiService.reorderGroupBackups(effectiveTripId, gid, orderedIds)
 
       // 取得後端回傳更新後的卡片清單 (含 altOrder 與可能轉移的交通資訊)
       const updatedMap = new Map()
@@ -1164,7 +1174,7 @@ export default function TripPage({ tripId, onBack }) {
     setActionLoading('設為主要行程中...')
     try {
       const orderedIds = items.map(i => i.id)
-      const res = await apiService.reorderGroupBackups(tripId, gid, orderedIds)
+      const res = await apiService.reorderGroupBackups(effectiveTripId, gid, orderedIds)
 
       const updatedMap = new Map()
       if (res?.updatedItems && Array.isArray(res.updatedItems)) {
@@ -1890,9 +1900,10 @@ export default function TripPage({ tripId, onBack }) {
                   date={formModal.mode === 'add' ? formModal.date : formModal.item?.date}
                   groupId={formModal.groupId}
                   altOrder={formModal.altOrder}
-                  tripId={tripId}
+                  tripId={effectiveTripId}
                   daySchedules={journeys.find(j => j.day === (formModal.mode === 'add' ? formModal.day : formModal.item?.day))?.schedule || []}
                   setActionLoading={setActionLoading}
+                  isReadOnly={isReadOnly}
                   onSaved={(savedItem, updatedDaySchedules) => {
                     setJourneys(prev => prev.map(j => {
                       if (j.day === savedItem.day) {
@@ -1913,8 +1924,9 @@ export default function TripPage({ tripId, onBack }) {
                 // 渲染航班/備註資訊表單
                 <TripInfoForm
                   type={tripInfoModal.type}
-                  tripId={tripId}
+                  tripId={effectiveTripId}
                   initialData={tripsInfo}
+                  isReadOnly={isReadOnly}
                   onSaved={(updatedFields) => {
                     setTripsInfo(prev => ({
                       ...prev,
@@ -1929,6 +1941,7 @@ export default function TripPage({ tripId, onBack }) {
                 <TransportForm
                   item={transportFormItem}
                   daySchedules={journeys.find(j => j.day === (transportFormItem?.day || selectedDay))?.schedule || []}
+                  isReadOnly={isReadOnly}
                   onSaved={(savedItem, shiftedItems = []) => {
                     // 將目標卡片與所有被骨牌連鎖推移的卡片整合成 Map，批次更新 state
                     const updatedMap = new Map();
@@ -1954,7 +1967,9 @@ export default function TripPage({ tripId, onBack }) {
                   <FileText size={48} className="text-[var(--primary-dark)] opacity-50 mb-4" />
                   <h3 className="text-[var(--primary)] font-serif text-lg font-semibold mb-2">請選擇行程</h3>
                   <p className="text-xs text-[var(--text-muted)] max-w-[240px] leading-relaxed">
-                    點選左側行程卡片或新增按鈕，即可在此區塊直接編輯行程、航班與備註內容。
+                    {isReadOnly
+                      ? '點選左側行程卡片或交通箭頭，即可在此區塊檢視行程詳細資訊與備註。'
+                      : '點選左側行程卡片或新增按鈕，即可在此區塊直接編輯行程、航班與備註內容。'}
                   </p>
                 </div>
               )}
@@ -1989,9 +2004,10 @@ export default function TripPage({ tripId, onBack }) {
           date={formModal.mode === 'add' ? formModal.date : formModal.item?.date}
           groupId={formModal.groupId}
           altOrder={formModal.altOrder}
-          tripId={tripId}
+          tripId={effectiveTripId}
           daySchedules={journeys.find(j => j.day === (formModal.mode === 'add' ? formModal.day : formModal.item?.day))?.schedule || []}
           setActionLoading={setActionLoading}
+          isReadOnly={isReadOnly}
           onClose={() => setFormModal(null)}
           onSaved={(savedItem, updatedDaySchedules) => {
             setJourneys(prev => prev.map(j => {
@@ -2014,8 +2030,9 @@ export default function TripPage({ tripId, onBack }) {
       {isMobile && tripInfoModal && (
         <TripInfoFormModal
           type={tripInfoModal.type}
-          tripId={tripId}
+          tripId={effectiveTripId}
           initialData={tripsInfo}
+          isReadOnly={isReadOnly}
           onClose={() => setTripInfoModal(null)}
           onSaved={(updatedFields) => {
             setTripsInfo(prev => ({
@@ -2070,7 +2087,7 @@ export default function TripPage({ tripId, onBack }) {
               dataToClear.tripRemark = '';
             }
 
-            await apiService.updateTripInfo(tripId, dataToClear);
+            await apiService.updateTripInfo(effectiveTripId, dataToClear);
 
             setTripsInfo(prev => ({
               ...prev,
@@ -2088,6 +2105,7 @@ export default function TripPage({ tripId, onBack }) {
         <TransportFormModal
           item={transportModalItem}
           daySchedules={journeys.find(j => j.day === (transportModalItem?.day || selectedDay))?.schedule || []}
+          isReadOnly={isReadOnly}
           onClose={() => setTransportModalItem(null)}
           onSaved={(savedItem, shiftedItems = []) => {
             // 將目標卡片與所有被骨牌連鎖推移的卡片整合成 Map，批次更新 state

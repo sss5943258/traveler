@@ -405,8 +405,16 @@ function getTripDetails(id, userId) {
     // 找不到 tripId，嘗試用 readOnlyId 尋找（唯讀分享模式）
     trip = tripsData.find(t => String(t.readOnlyId) === String(id));
     if (trip) {
-      isReadOnly = true;
       tripId = trip.tripId; // 取得真實 tripId 供後續查詢 Schedules 與 Trips_Info 使用
+      // 若當前使用者為 owner 或共編者，自動賦予編輯權限；未登入或無權限訪客一律唯讀
+      // 注意：使用純比對避免透過分享連結意外認領無 owner 的舊行程
+      const isEditor = Boolean(
+        userId && (
+          (trip.userId && String(trip.userId) === String(userId)) ||
+          isTripCollaborator(trip.tripId, userId)
+        )
+      );
+      isReadOnly = !isEditor;
     }
   }
 
@@ -470,7 +478,7 @@ function getTripDetails(id, userId) {
     tripId: trip.tripId,
     readOnlyId: trip.readOnlyId || '',
     isReadOnly: isReadOnly,
-    isOwner: !isReadOnly && isTripOwner(trip.tripId, userId),
+    isOwner: !isReadOnly && Boolean(trip.userId && String(trip.userId) === String(userId)),
     name:   trip.name,
     startDate: trip.startDate,
     endDate:   trip.endDate,

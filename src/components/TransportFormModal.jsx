@@ -17,7 +17,7 @@ import './Modals.css'
  * @param {Function} props.onSaved - 儲存成功後的回呼函式 (savedItem, shiftedItems)
  * @param {Function} props.onCancel - 取消或關閉表單的回呼函式
  */
-export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
+export function TransportForm({ item, daySchedules = [], onSaved, onCancel, isReadOnly = false }) {
   // 表單內部各欄位 state 定義
   const [type, setType] = useState(item?.transportType || 'walk')
   const [customName, setCustomName] = useState(item?.transportCustomName || '')
@@ -47,14 +47,16 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
   /**
    * handleSubmit 處理表單提交儲存
    * 
-   * 1. 驗證自訂名稱
-   * 2. 組裝 payload（包含交通欄位與 autoShift 旗標）
-   * 3. 呼叫單一 API 請求交由後端完成推移運算與 Google Sheets / 資料庫交易儲存
-   * 4. 若後端回傳有行程被截斷至 23:59，以 Ant Design message.info 提示
-   * 5. 呼叫 onSaved 通知父層刷新 State
+   * 1. 唯讀狀態下直接返回，防禦阻擋送出
+   * 2. 驗證自訂名稱
+   * 3. 組裝 payload（包含交通欄位與 autoShift 旗標）
+   * 4. 呼叫單一 API 請求交由後端完成推移運算與 Google Sheets / 資料庫交易儲存
+   * 5. 若後端回傳有行程被截斷至 23:59，以 Ant Design message.info 提示
+   * 6. 呼叫 onSaved 通知父層刷新 State
    */
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isReadOnly) return
 
     // 若選擇自訂交通方式，檢查名稱不可為空
     if (type === 'custom' && !customName.trim()) {
@@ -102,9 +104,10 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
   /**
    * handleClear 清除當前卡片的交通資訊
    * 
-   * 重設交通欄位為空並儲存至 API，不變動行程的時間排程。
+   * 重設交通欄位為空並儲存至 API，不變動行程的時間排程。唯讀模式下不可操作。
    */
   const handleClear = async () => {
+    if (isReadOnly) return
     setIsSaving(true)
     setError(null)
 
@@ -133,7 +136,7 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
       {/* 頂部標題區 */}
       <div className="form-modal-header">
         <div>
-          <h2 className="modal-title">新增 / 編輯交通方式</h2>
+          <h2 className="modal-title">{isReadOnly ? '交通詳細資訊' : '新增 / 編輯交通方式'}</h2>
           <p className="modal-subtitle">前往「{item?.attractionName}」的交通資訊</p>
         </div>
         {onCancel && (
@@ -149,11 +152,12 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
           
           {/* 第一欄：交通方式 Selector */}
           <div className="form-group">
-            <label>交通方式 <span className="required">*</span></label>
+            <label>交通方式 {!isReadOnly && <span className="required">*</span>}</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full p-2 border rounded"
+              disabled={isReadOnly}
+              className={`w-full p-2 border rounded ${isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
             >
               <option value="walk">步行</option>
               <option value="car">開車</option>
@@ -166,13 +170,15 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
           {/* 若選擇自訂，額外顯示名稱輸入框 */}
           {type === 'custom' && (
             <div className="form-group">
-              <label>自訂交通名稱 <span className="required">*</span></label>
+              <label>自訂交通名稱 {!isReadOnly && <span className="required">*</span>}</label>
               <input
                 type="text"
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
                 placeholder="例如：渡輪、纜車、腳踏車"
-                required
+                disabled={isReadOnly}
+                className={isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}
+                required={!isReadOnly}
               />
             </div>
           )}
@@ -182,19 +188,20 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
             <label>預估花費時間</label>
             <div className="flex items-center gap-3">
               {/* 左側：小時 Input */}
-              <div className="flex items-center border border-gray-300 rounded px-3 bg-white flex-1 focus-within:border-[var(--primary)] focus-within:ring-1 focus-within:ring-[var(--primary)]">
+              <div className={`flex items-center border border-gray-300 rounded px-3 flex-1 ${isReadOnly ? 'bg-gray-100 opacity-80 cursor-not-allowed' : 'bg-white focus-within:border-[var(--primary)] focus-within:ring-1 focus-within:ring-[var(--primary)]'}`}>
                 <input
                   type="number"
                   min="0"
                   max="24"
                   list="hours-autocomplete"
                   value={hours === 0 ? '' : hours}
+                  disabled={isReadOnly}
                   onChange={(e) => {
                     const val = e.target.value
                     setHours(val === '' ? 0 : Math.max(0, Math.min(24, Number(val) || 0)))
                   }}
                   style={{ border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none', padding: '0.5rem 0' }}
-                  className="w-full text-left pr-1"
+                  className={`w-full text-left pr-1 ${isReadOnly ? 'cursor-not-allowed text-gray-600' : ''}`}
                 />
                 <span className="text-xs text-gray-400 font-normal whitespace-nowrap shrink-0 ml-1 pointer-events-none">小時</span>
                 <datalist id="hours-autocomplete">
@@ -205,19 +212,20 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
               </div>
 
               {/* 右側：分鐘 Input */}
-              <div className="flex items-center border border-gray-300 rounded px-3 bg-white flex-1 focus-within:border-[var(--primary)] focus-within:ring-1 focus-within:ring-[var(--primary)]">
+              <div className={`flex items-center border border-gray-300 rounded px-3 flex-1 ${isReadOnly ? 'bg-gray-100 opacity-80 cursor-not-allowed' : 'bg-white focus-within:border-[var(--primary)] focus-within:ring-1 focus-within:ring-[var(--primary)]'}`}>
                 <input
                   type="number"
                   min="0"
                   max="60"
                   list="minutes-autocomplete"
                   value={minutes === 0 ? '' : minutes}
+                  disabled={isReadOnly}
                   onChange={(e) => {
                     const val = e.target.value
                     setMinutes(val === '' ? 0 : Math.max(0, Math.min(60, Number(val) || 0)))
                   }}
                   style={{ border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none', padding: '0.5rem 0' }}
-                  className="w-full text-left pr-1"
+                  className={`w-full text-left pr-1 ${isReadOnly ? 'cursor-not-allowed text-gray-600' : ''}`}
                 />
                 <span className="text-xs text-gray-400 font-normal whitespace-nowrap shrink-0 ml-1 pointer-events-none">分鐘</span>
                 <datalist id="minutes-autocomplete">
@@ -234,6 +242,7 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
             <Checkbox
               checked={autoShift}
               onChange={(e) => setAutoShift(e.target.checked)}
+              disabled={isReadOnly}
               className="text-sm font-medium text-gray-700 select-none"
             >
               自動順延後續行程
@@ -249,6 +258,8 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
             <textarea
               value={remark}
               onChange={(e) => setRemark(e.target.value)}
+              disabled={isReadOnly}
+              className={isReadOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}
               placeholder="補充說明、搭乘路線、票價備註..."
             />
           </div>
@@ -259,7 +270,7 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
 
       {/* 底部按鈕區 */}
       <div className="form-modal-footer flex justify-between items-center">
-        {item?.transportType ? (
+        {!isReadOnly && item?.transportType ? (
           <button
             type="button"
             className="btn-delete flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium border-0 bg-transparent cursor-pointer"
@@ -273,13 +284,15 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
         <div className="flex gap-2">
           {onCancel && (
             <button type="button" className="btn-cancel" onClick={onCancel} disabled={isSaving}>
-              取消
+              {isReadOnly ? '關閉' : '取消'}
             </button>
           )}
-          <button type="submit" form="transportForm" className="btn-save flex items-center justify-center px-4" disabled={isSaving}>
-            {isSaving ? <Loader size={16} className="spin-icon mr-1" /> : null}
-            {isSaving ? '儲存中...' : '確定'}
-          </button>
+          {!isReadOnly && (
+            <button type="submit" form="transportForm" className="btn-save flex items-center justify-center px-4" disabled={isSaving}>
+              {isSaving ? <Loader size={16} className="spin-icon mr-1" /> : null}
+              {isSaving ? '儲存中...' : '確定'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -293,6 +306,7 @@ export function TransportForm({ item, daySchedules = [], onSaved, onCancel }) {
  * @param {Array} props.daySchedules - 當天行程資料清單
  * @param {Function} props.onSaved - 儲存成功回呼函式
  * @param {Function} props.onClose - 關閉彈窗回呼函式
+ * @param {boolean} props.isReadOnly - 是否為唯讀模式
  */
 export default function TransportFormModal(props) {
   return createPortal(
@@ -303,6 +317,7 @@ export default function TransportFormModal(props) {
           daySchedules={props.daySchedules}
           onSaved={props.onSaved}
           onCancel={props.onClose}
+          isReadOnly={props.isReadOnly}
         />
       </div>
     </div>,

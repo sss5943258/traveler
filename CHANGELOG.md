@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-10-08
+
+### Security
+- **避免分享連結查詢意外認領歷史行程擁有權 (`backend/TripsService.gs`) (CWE-863)**：
+  - 在 `getTripDetails` 之 `readOnlyId` 分支中改用純比對判斷 `isEditor`，移除 `isTripOwner(trip.tripId, userId)` 調用，杜絕已登入使用者透過舊行程唯讀分享連結意外觸發認領並取得編輯權限的漏洞。
+
+### Fixed
+- **分享行程免登入公開唯讀與首頁導向修復 (`src/App.jsx`)**：
+  - 調整 `App.jsx` 路由守衛；當 URL 帶有 `?id=xxx`（分享連結）時，未登入訪客無需強制跳轉登入頁面即可直接檢視行程。
+  - 當訪客於行程頁面點擊「← 回首頁」時，主動清除網址參數並平滑導向 `LoginPage` 引導登入。
+- **UI 表單唯讀鎖定與非授權使用者防竄改 (`src/components/ScheduleFormModal.jsx`, `src/components/TripInfoFormModal.jsx`, `src/components/TransportFormModal.jsx`, `src/components/TripPage.jsx`)**：
+  - 修復未授權使用者透過分享連結仍能開啟可編輯表單之重大缺陷。在 `isReadOnly` 模式下保持原有版面佈局，所有輸入控制項（行程名稱、時間、備註、地圖、航班各欄位、交通方式與自動順延開關）全面設為 `disabled`，並隱藏儲存與清除按鈕，取消按鈕文字切換為「關閉」。
+  - 調整 `TransportArrow` 行為，在唯讀模式下若有交通資訊支援點擊並於右側面板展示唯讀交通表單，無交通資訊時自動隱藏新增提示與指標效果。
+- **身分識別自動切換與資料庫落庫 ID 錯亂修復 (`src/components/TripPage.jsx`, `backend/TripsService.gs`, `travel-app-api/Controllers/TripsController.cs`)**：
+  - 擁有者或受邀共編者透過 `readOnlyId` 分享連結進入時，後端自動識別身分並解除唯讀限制（`isReadOnly: false`）。
+  - `TripPage` 宣告 `effectiveTripId = tripInfo?.tripId || tripId`，確保透過分享連結進入的有權限使用者在進行新增、排序、複製、修改航班等所有寫入操作時，均使用後端解析出的真實 UUID 落庫，防止關聯錯亂。
+
+---
+
 ## [1.0.2] - 2026-10-08
 
 ### Security
